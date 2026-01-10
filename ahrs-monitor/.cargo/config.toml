@@ -1,0 +1,7 @@
+# SPDX-License-Identifier: Apache-2.0.
+# Copyright (C) 2026-present ahrs-monitor project and contributors.
+
+# Sets the logging level for the output.
+[env]
+# The logs will include informational messages, warnings and errors.
+RUST_LOG="info"

@@ -13,3 +13,14 @@ edition     = "2024"
 
 # Project dependencies section.
 [dependencies]
+# An easy-to-use GUI.
+egui = "0.33"
+# A simple logger that can be configured via environment variables,
+# for use with the logging facade exposed by the log crate.
+env_logger = "0.11"
+# The egui framework crate.
+eframe = "0.33"
+# A lightweight logging facade.
+log = "0.4"
+# Date and Time for Rust.
+chrono = "0.4"

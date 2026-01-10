@@ -3,6 +3,14 @@
 
 //! AHRS monitor entry point.
 
+use ahrs_monitor;
+use log;
+
 fn main() {
-    println!("Running AHRS monitor...");
+    ahrs_monitor::init();
+
+    if let Err(e) = ahrs_monitor::run() {
+        log::error!("{}", e);
+        std::process::exit(1);
+    }
 }
