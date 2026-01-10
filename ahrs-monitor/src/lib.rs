@@ -3,7 +3,10 @@
 
 //! AHRS cross-platform telemetry station.
 
-use eframe::{egui, Error, Frame};
+pub mod app;
+pub mod config;
+
+use eframe::{egui, Error, Frame, HardwareAcceleration};
 use chrono::Local;
 use env_logger::Builder;
 use log::LevelFilter;
@@ -41,6 +44,23 @@ pub fn init() {
 }
 
 /// Run AHRS monitor.
+/// 
+/// # Returns
+/// - `Ok`  - in case of success.
+/// - `Err` - otherwise.
 pub fn run() -> eframe::Result {
-    Ok(())
+    // Setting options controlling the behavior of a native window.
+    let options = eframe::NativeOptions {
+        viewport: egui::ViewportBuilder::default()
+            .with_inner_size(config::APP_WINDOW_SIZE),
+        hardware_acceleration: HardwareAcceleration::Required,
+        ..Default::default()
+    };
+
+    // Starting a native app.
+    eframe::run_native(
+        config::APP_WINDOW_TITLE,
+        options,
+        Box::new(|_| Ok(Box::<app::App>::default())),
+    )
 }
