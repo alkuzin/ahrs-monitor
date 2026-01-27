@@ -5,18 +5,25 @@
 
 use tsilna_nav::protocol::idtp::IDTP_FRAME_MAX_SIZE;
 use tokio::net::UdpSocket;
-use crate::config;
+use tokio::sync::mpsc::Sender;
+use crate::{config, model::AppEvent};
 
 /// Mediator between AHRS monitor and IMU.
-pub struct Ingester;
+pub struct Ingester {
+    /// MPSC sender handle.
+    tx: Sender<AppEvent>,
+}
 
 impl Ingester {
     /// Construct new `Ingester` object.
-    ///
+    /// 
+    /// # Parameters
+    /// - `tx` - given MPSC sender handle.
+    /// 
     /// # Returns
     /// - New `Ingester` object.
-    pub fn new() -> Self {
-        Self {}
+    pub fn new(tx: Sender<AppEvent>) -> Self {
+        Self { tx }
     }
 
     /// Start communication with IMU.
@@ -24,7 +31,14 @@ impl Ingester {
         log::info!("Running Ingester");
 
         let pair = (config::UDP_IP_ADDR, config::UDP_PORT);
-        let socket = UdpSocket::bind(pair).await?;
+        let bind_result = UdpSocket::bind(pair).await;
+
+        // Sending UDP connection status.
+        self.tx.send(
+            AppEvent::UpdateConnectionStatus(bind_result.is_ok())
+        ).await?;
+
+        let socket = bind_result?;
         let mut buffer = [0u8; IDTP_FRAME_MAX_SIZE];
 
         log::info!("Listening for IDTP frames...");
@@ -40,7 +54,5 @@ impl Ingester {
 
             packet_counter += 1;
         }
-
-        Ok(())
     }
 }

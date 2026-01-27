@@ -5,7 +5,8 @@
 
 use eframe::Frame;
 use egui::{Align, CentralPanel, Color32, Context, Layout, RichText, TopBottomPanel};
-use crate::config;
+use tokio::sync::mpsc::{Receiver};
+use crate::{config, model::AppEvent};
 
 /// Application tabs enumeration.
 #[derive(Debug, Default, PartialEq)]
@@ -20,14 +21,17 @@ enum Tab {
 }
 
 /// Application handler.
-#[derive(Default)]
 pub struct App {
+    /// MPSC receiver handle.
+    rx: Receiver<AppEvent>,
     /// Current selected tab.
     current_tab: Tab,
     /// Current smoothed number of frames per second.
     fps: f64,
     /// Current number of frames from the start.
     frame_counter: usize,
+    /// IMU connection status.
+    connection_status: bool,
 }
 
 impl eframe::App for App {
@@ -41,11 +45,20 @@ impl eframe::App for App {
 
         TopBottomPanel::top("top_panel").show(ctx, |ui| {
             ui.horizontal(|ui| {
-                ui.selectable_value(&mut self.current_tab, Tab::Dashboard, "Dashboard");
-                ui.selectable_value(&mut self.current_tab, Tab::Telemetry, "Telemetry");
-                ui.selectable_value(&mut self.current_tab, Tab::Inspector, "Packet Inspector");
+                ui.selectable_value(&mut self.current_tab, Tab::Dashboard, "🗖 Dashboard");
+                ui.selectable_value(&mut self.current_tab, Tab::Telemetry, "📈 Telemetry");
+                ui.selectable_value(&mut self.current_tab, Tab::Inspector, "🔍 Packet Inspector");
             })
         });
+
+        // Handling events from ingester.
+        if let Ok(event) = self.rx.try_recv() {
+            match event {
+                AppEvent::UpdateConnectionStatus(status) => {
+                    self.connection_status = status;
+                },
+            }
+        }
 
         CentralPanel::default().show(&ctx, |ui| {
             match self.current_tab {
@@ -57,8 +70,14 @@ impl eframe::App for App {
 
         TopBottomPanel::bottom("bottom_panel").show(ctx, |ui| {
             ui.horizontal(|ui| {
-                // TODO: handle connection status.
-                ui.label(RichText::new("CONNECTED").color(Color32::GREEN));
+                let connection_label = if self.connection_status {
+                    RichText::new("CONNECTED").color(Color32::GREEN)
+                }
+                else {
+                    RichText::new("DISCONNECTED").color(Color32::RED)
+                };
+
+                ui.label(connection_label);
                 ui.separator();
 
                 // Colored FPS indicator.
@@ -86,6 +105,23 @@ impl eframe::App for App {
 }
 
 impl App {
+    /// Construct new `App` object.
+    ///
+    /// # Parameters
+    /// - `rx` - given MPSC receiver handle.
+    ///
+    /// # Returns
+    /// - New `App` object.
+    pub fn new(rx: Receiver<AppEvent>) -> Self {
+        Self {
+            rx,
+            current_tab: Default::default(),
+            fps: 0.0,
+            frame_counter: 0,
+            connection_status: false,
+        }
+    }
+
     /// Get smoothed number of frames per second.
     /// (Exponential Moving Average (EMA)).
     ///
