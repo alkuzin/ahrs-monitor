@@ -53,9 +53,14 @@ impl eframe::App for App {
 
         // Handling events from ingester.
         if let Ok(event) = self.rx.try_recv() {
+            log::info!("EVENT: {:?}", event);
+
             match event {
                 AppEvent::UpdateConnectionStatus(status) => {
                     self.connection_status = status;
+                },
+                AppEvent::FrameReceived(frame_ctx) => {
+                    log::debug!("received frame: {:?}", frame_ctx);
                 },
             }
         }

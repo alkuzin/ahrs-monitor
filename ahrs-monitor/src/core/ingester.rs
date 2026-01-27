@@ -3,10 +3,12 @@
 
 //! IMU communication handler.
 
-use tsilna_nav::protocol::idtp::IDTP_FRAME_MAX_SIZE;
+use anyhow::anyhow;
+use tsilna_nav::protocol::idtp::{IdtpError, IdtpFrame, IDTP_FRAME_MAX_SIZE};
 use tokio::net::UdpSocket;
 use tokio::sync::mpsc::Sender;
 use crate::{config, model::AppEvent};
+use crate::model::FrameContext;
 
 /// Mediator between AHRS monitor and IMU.
 pub struct Ingester {
@@ -42,17 +44,36 @@ impl Ingester {
         let mut buffer = [0u8; IDTP_FRAME_MAX_SIZE];
 
         log::info!("Listening for IDTP frames...");
-        let mut packet_counter = 0;
+        let mut total_packets = 0;
+        let mut bad_packets = 0;
 
         loop {
-            let (len, addr) = socket.recv_from(&mut buffer).await?;
+            let (len, _addr) = socket.recv_from(&mut buffer).await?;
+            let raw_frame = &buffer[..len];
 
-            if packet_counter % 100 == 0 {
-                log::info!("({}) Received {} bytes from {}", packet_counter, len, addr);
-                log::info!("Buffer: {:x?}", &buffer[..196]);
+            if IdtpFrame::validate(&raw_frame, None).is_err() {
+                bad_packets += 1;
             }
 
-            packet_counter += 1;
+            let frame = match IdtpFrame::try_from(raw_frame) {
+                Ok(frame) => {
+                    Some(frame)
+                },
+                Err(_) => {
+                    bad_packets += 1;
+                    None
+                }
+            };
+
+            total_packets += 1;
+
+            let frame_ctx = FrameContext {
+                frame,
+                total_packets,
+                bad_packets,
+            };
+            
+            self.tx.send(AppEvent::FrameReceived(frame_ctx)).await?;
         }
     }
 }
