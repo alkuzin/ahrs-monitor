@@ -7,6 +7,7 @@ pub mod app;
 pub mod config;
 pub mod core;
 pub mod model;
+pub mod ui;
 
 use eframe::{egui, HardwareAcceleration};
 use chrono::Local;
