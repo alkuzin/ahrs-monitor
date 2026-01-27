@@ -5,6 +5,7 @@
 
 use eframe::Frame;
 use egui::{Align, CentralPanel, Color32, Context, Layout, RichText, TopBottomPanel};
+use crate::config;
 
 /// Application tabs enumeration.
 #[derive(Debug, Default, PartialEq)]
@@ -75,9 +76,7 @@ impl eframe::App for App {
                 ui.label(fps_label);
 
                 ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
-                    // TODO: move version to project config.
-                    let version = env!("CARGO_PKG_VERSION");
-                    ui.label(format!("AHRS Monitor - v{version}"));
+                    ui.label(format!("AHRS Monitor - v{}", config::VERSION));
                 });
             })
         });

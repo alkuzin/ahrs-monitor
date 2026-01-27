@@ -5,6 +5,7 @@
 
 use tsilna_nav::protocol::idtp::IDTP_FRAME_MAX_SIZE;
 use tokio::net::UdpSocket;
+use crate::config;
 
 /// Mediator between AHRS monitor and IMU.
 pub struct Ingester;
@@ -22,8 +23,8 @@ impl Ingester {
     pub async fn run(&mut self) -> anyhow::Result<()> {
         log::info!("Running Ingester");
 
-        // TODO: move IP address and port into separate file.
-        let socket = UdpSocket::bind(("127.0.0.1", 10000)).await?;
+        let pair = (config::UDP_IP_ADDR, config::UDP_PORT);
+        let socket = UdpSocket::bind(pair).await?;
         let mut buffer = [0u8; IDTP_FRAME_MAX_SIZE];
 
         log::info!("Listening for IDTP frames...");
