@@ -5,12 +5,14 @@
 
 pub mod app;
 pub mod config;
+pub mod core;
 
 use eframe::{egui, Error, Frame, HardwareAcceleration};
 use chrono::Local;
 use env_logger::Builder;
 use log::LevelFilter;
 use std::{io::Write, sync::Once};
+use crate::core::{Ingester};
 
 /// Used in order to ensure that the initialization code runs only once.
 static INIT: Once = Once::new();
@@ -44,11 +46,20 @@ pub fn init() {
 }
 
 /// Run AHRS monitor.
-/// 
+///
 /// # Returns
 /// - `Ok`  - in case of success.
 /// - `Err` - otherwise.
 pub fn run() -> eframe::Result {
+    // Spawning a new asynchronous task for handling IDTP frames.
+    tokio::spawn(async move {
+        let mut ingester = Ingester::new();
+
+        if let Err(e) = ingester.run().await {
+            log::error!("Core service failed: {:?}", e);
+        }
+    });
+
     // Setting options controlling the behavior of a native window.
     let options = eframe::NativeOptions {
         viewport: egui::ViewportBuilder::default()

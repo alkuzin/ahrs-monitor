@@ -6,7 +6,8 @@
 use ahrs_monitor;
 use log;
 
-fn main() {
+#[tokio::main]
+async fn main() {
     ahrs_monitor::init();
 
     if let Err(e) = ahrs_monitor::run() {

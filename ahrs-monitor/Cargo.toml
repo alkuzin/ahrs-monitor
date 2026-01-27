@@ -24,3 +24,12 @@ eframe = "0.33"
 log = "0.4"
 # Date and Time for Rust.
 chrono = "0.4"
+# A runtime for writing reliable network applications
+# without compromising speed.
+tokio = { version = "1.49", features = ["full"] }
+# Memory-safe autonomous navigation framework
+tsilna-nav = { git = "https://github.com/alkuzin/tsilna", features = ["math", "protocol"] }
+# A trait object based error type for easy idiomatic error handling.
+anyhow = "1.0"
+# Utilities for random number generation.
+rand = "0.9"
