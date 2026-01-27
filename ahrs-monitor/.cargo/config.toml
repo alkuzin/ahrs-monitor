@@ -5,3 +5,10 @@
 [env]
 # The logs will include informational messages, warnings and errors.
 RUST_LOG="info"
+
+# Sets the aliases for cargo.
+[alias]
+# Alias for running AHRS monitor.
+monitor = "run --bin ahrs-monitor"
+# Alias for running IMU simulator.
+sim = "run --bin imu-simulator"

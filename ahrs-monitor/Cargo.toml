@@ -28,8 +28,13 @@ chrono = "0.4"
 # without compromising speed.
 tokio = { version = "1.49", features = ["full"] }
 # Memory-safe autonomous navigation framework
-tsilna-nav = { git = "https://github.com/alkuzin/tsilna", features = ["math", "protocol"] }
+tsilna-nav = { git = "https://github.com/alkuzin/tsilna", features = ["math", "protocol", "idtp_sw_impl"] }
 # A trait object based error type for easy idiomatic error handling.
 anyhow = "1.0"
 # Utilities for random number generation.
 rand = "0.9"
+
+# Executable files section.
+[[bin]]
+name = "imu-simulator"
+path = "examples/imu_simulator.rs"
