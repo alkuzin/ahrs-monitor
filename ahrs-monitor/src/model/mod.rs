@@ -5,14 +5,21 @@
 
 use tsilna_nav::protocol::idtp::IdtpFrame;
 
-#[derive(Debug, Default)]
+/// Context data after receiving the frame.
+#[derive(Debug, Default, Clone)]
 pub struct FrameContext {
     /// IMU Data Transfer Protocol frame.
     pub frame: Option<IdtpFrame>,
+    /// Raw frame bytes.
+    pub raw_frame: Vec<u8>,
+    /// Indicator whether current frame is valid.
+    pub is_valid: bool,
     /// Total number of packets.
     pub total_packets: usize,
     /// Number of broken packets.
     pub bad_packets: usize,
+    /// Number of packets per second.
+    pub pps: usize,
 }
 
 /// Application events enumeration.
