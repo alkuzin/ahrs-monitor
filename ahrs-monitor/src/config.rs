@@ -23,3 +23,6 @@ pub const UDP_IP_ADDR: &'static str = "127.0.0.1";
 
 /// Ingester UDP port.
 pub const UDP_PORT: u16 = 10000;
+
+/// Max size of frame contexts history.
+pub const HISTORY_MAX_SIZE: usize = 32;
