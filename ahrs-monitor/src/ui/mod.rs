@@ -3,6 +3,8 @@
 
 //! The core responsible for AHRS Monitor user interface.
 
+use crate::model::FrameContext;
+
 pub mod inspector;
 
 /// Application tabs enumeration.
@@ -15,4 +17,26 @@ pub enum Tab {
     Telemetry,
     /// Tab for displaying raw packet inspector.
     Inspector,
+}
+
+/// Application tab trait.
+pub trait TabViewer {
+    /// Get tab title.
+    ///
+    /// # Returns
+    /// - Tab title string slice.
+    fn title(&self) -> &str;
+
+    /// Get tab icon.
+    ///
+    /// # Returns
+    /// - Tab icon string slice.
+    fn icon(&self) -> &str;
+
+    /// Display tab.
+    ///
+    /// # Parameters
+    /// - `ui` - given screen UI handler.
+    /// - `frame_ctx` - given current frame context to handle.
+    fn ui(&mut self, ui: &mut egui::Ui, frame_ctx: &FrameContext);
 }
