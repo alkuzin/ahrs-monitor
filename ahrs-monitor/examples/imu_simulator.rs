@@ -27,18 +27,18 @@ const RNG_MAG_RANGE: Range<f32> = -8.0..8.0; // +-8 Gauss.
 /// - New generated payload.
 pub fn generate_payload(state: u32) -> Payload {
     let mut rng = Xorshift::new(state);
-    let mut payload = Payload::default();
 
-    payload.acc_x = rng.next_f32(RNG_ACC_RANGE);
-    payload.acc_y = rng.next_f32(RNG_ACC_RANGE);
-    payload.acc_z = rng.next_f32(RNG_ACC_RANGE);
-    payload.gyr_x = rng.next_f32(RNG_GYR_RANGE);
-    payload.gyr_y = rng.next_f32(RNG_GYR_RANGE);
-    payload.gyr_z = rng.next_f32(RNG_GYR_RANGE);
-    payload.mag_x = rng.next_f32(RNG_MAG_RANGE);
-    payload.mag_y = rng.next_f32(RNG_MAG_RANGE);
-    payload.mag_z = rng.next_f32(RNG_MAG_RANGE);
-    payload
+    Payload {
+        acc_x: rng.next_f32(RNG_ACC_RANGE),
+        acc_y: rng.next_f32(RNG_ACC_RANGE),
+        acc_z: rng.next_f32(RNG_ACC_RANGE),
+        gyr_x: rng.next_f32(RNG_GYR_RANGE),
+        gyr_y: rng.next_f32(RNG_GYR_RANGE),
+        gyr_z: rng.next_f32(RNG_GYR_RANGE),
+        mag_x: rng.next_f32(RNG_MAG_RANGE),
+        mag_y: rng.next_f32(RNG_MAG_RANGE),
+        mag_z: rng.next_f32(RNG_MAG_RANGE),
+    }
 }
 
 #[tokio::main]
@@ -65,7 +65,7 @@ async fn main() -> std::io::Result<()> {
         // Setting the IDTP frame.
         let mut frame = IdtpFrame::new();
         frame.set_header(&header);
-        let _ = frame.set_payload(&payload.as_bytes());
+        let _ = frame.set_payload(payload.as_bytes());
 
         let frame_size = frame.size().unwrap_or(0);
         let _ = frame.pack(&mut buffer[..frame_size], None);
@@ -73,8 +73,8 @@ async fn main() -> std::io::Result<()> {
 
         sequence += 1;
 
-        if sequence % 100 == 0 {
-            println!("Sequence: {} Sent 100 packets", sequence);
+        if sequence.is_multiple_of(100) {
+            println!("Sequence: {sequence} Sent 100 packets");
         }
 
         tokio::time::sleep(delay_time).await;

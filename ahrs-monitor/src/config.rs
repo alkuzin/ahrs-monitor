@@ -13,13 +13,13 @@ pub const APP_WINDOW_HEIGHT: f32 = 768.0;
 pub const APP_WINDOW_SIZE: [f32; 2] = [APP_WINDOW_WIDTH, APP_WINDOW_HEIGHT];
 
 /// Title of the window.
-pub const APP_WINDOW_TITLE: &'static str = "AHRS Monitor";
+pub const APP_WINDOW_TITLE: &str = "AHRS Monitor";
 
 /// Project version.
-pub const VERSION: &'static str = env!("CARGO_PKG_VERSION");
+pub const VERSION: &str = env!("CARGO_PKG_VERSION");
 
 /// Ingester UDP IP address.
-pub const UDP_IP_ADDR: &'static str = "127.0.0.1";
+pub const UDP_IP_ADDR: &str = "127.0.0.1";
 
 /// Ingester UDP port.
 pub const UDP_PORT: u16 = 10000;

@@ -3,6 +3,7 @@
 
 //! Packet inspector tab user interface implementation.
 
+use std::fmt::Write;
 use crate::model::{FrameContext, payload::Payload};
 use tsilna_nav::protocol::idtp::{IdtpFrame, Mode};
 use zerocopy::FromBytes;
@@ -15,8 +16,8 @@ use egui::{Layout, RichText};
 /// - `ui` - given screen UI handler.
 /// - `current_frame` - given current frame context to handle.
 pub fn display_tab(ui: &mut egui::Ui, current_frame: &Option<FrameContext>) {
-    if let Some(frame_ctx) = current_frame {
-        if let Some(frame) = &frame_ctx.frame {
+    if let Some(frame_ctx) = current_frame
+        && let Some(frame) = &frame_ctx.frame {
             ui.horizontal_top(|ui| {
                 let mut col_height: Option<f32> = None;
 
@@ -38,7 +39,6 @@ pub fn display_tab(ui: &mut egui::Ui, current_frame: &Option<FrameContext>) {
                 });
             });
         }
-    }
 }
 
 /// Display hex dump column user interface.
@@ -62,7 +62,7 @@ fn display_hex_dump_column(ui: &mut egui::Ui, frame_ctx: &FrameContext, frame: &
         let version = header.version;
         let version_major = (version >> 4) & 0x0F;
         let version_minor = version & 0x0F;
-        let version = format!("v{}.{}", version_major, version_minor);
+        let version = format!("v{version_major}.{version_minor}");
         let mode = Mode::from(header.mode);
         let payload_type = header.payload_type;
         let crc = header.crc;
@@ -91,16 +91,16 @@ fn display_hex_dump_column(ui: &mut egui::Ui, frame_ctx: &FrameContext, frame: &
 
             // Displaying IDTP header info.
             ui.group(|ui| {
-                display_metric(ui, "Frame: is", valid_label, None, Some(valid_color));
-                display_metric(ui, "Preamble:", preamble, None, None);
-                display_metric(ui, "Timestamp:", timestamp, Some("µs"), None);
-                display_metric(ui, "Sequence:", sequence, None, None);
-                display_metric(ui, "Device ID:", device_id, None, None);
-                display_metric(ui, "Payload Size:", payload_size, Some("bytes"), None);
-                display_metric(ui, "Protocol Mode:", mode_label, None, Some(mode_color));
-                display_metric(ui, "Version:", version, None, None);
-                display_metric(ui, "Payload Type:", payload_type, None, None);
-                display_metric(ui, "CRC:", crc, None, None);
+                display_metric(ui, "Frame: is", &valid_label, None, Some(valid_color));
+                display_metric(ui, "Preamble:", &preamble, None, None);
+                display_metric(ui, "Timestamp:", &timestamp, Some("µs"), None);
+                display_metric(ui, "Sequence:", &sequence, None, None);
+                display_metric(ui, "Device ID:", &device_id, None, None);
+                display_metric(ui, "Payload Size:", &payload_size, Some("bytes"), None);
+                display_metric(ui, "Protocol Mode:", &mode_label, None, Some(mode_color));
+                display_metric(ui, "Version:", &version, None, None);
+                display_metric(ui, "Payload Type:", &payload_type, None, None);
+                display_metric(ui, "CRC:", &crc, None, None);
             });
         });
 
@@ -117,38 +117,47 @@ fn display_hex_dump_column(ui: &mut egui::Ui, frame_ctx: &FrameContext, frame: &
 /// - `frame` - given IDTP frame to handle.
 /// - `col_height` - given hex dump column height in pixels.
 fn display_payload_column(ui: &mut egui::Ui, frame: &IdtpFrame, col_height: f32) {
-    if let Ok(payload_bytes) = frame.payload() {
-        if let Ok(payload) = Payload::read_from_prefix(&payload_bytes) {
+    if let Ok(payload_bytes) = frame.payload()
+        && let Ok(payload) = Payload::read_from_prefix(payload_bytes) {
             let payload = payload.0;
 
-            ui.with_layout(Layout::top_down(egui::Align::LEFT), |ui| {
-                ui.group(|ui| {
-                    let height = col_height.max(100.0);
+        let acc_x = payload.acc_x;
+        let acc_y = payload.acc_y;
+        let acc_z = payload.acc_z;
+        let gyr_x = payload.gyr_x;
+        let gyr_y = payload.gyr_y;
+        let gyr_z = payload.gyr_z;
+        let mag_x = payload.mag_x;
+        let mag_y = payload.mag_y;
+        let mag_z = payload.mag_z;
 
-                    ui.set_width(ui.available_width());
-                    ui.set_max_height(height - 14.0);
+        ui.with_layout(Layout::top_down(egui::Align::LEFT), |ui| {
+            ui.group(|ui| {
+                let height = col_height.max(100.0);
 
-                    egui::ScrollArea::vertical()
-                        .id_salt("payload_metrics_scroll")
-                        .auto_shrink([false; 2])
-                        .show(ui, |ui| {
-                            ui.vertical(|ui| {
-                                ui.label(RichText::new("Payload Metrics").strong());
-                                ui.separator();
-                                display_metric(ui, "ACC X:", payload.acc_x, None, None);
-                                display_metric(ui, "ACC Y:", payload.acc_y, None, None);
-                                display_metric(ui, "ACC Z:", payload.acc_z, None, None);
-                                display_metric(ui, "GYR X:", payload.gyr_x, None, None);
-                                display_metric(ui, "GYR Y:", payload.gyr_y, None, None);
-                                display_metric(ui, "GYR Z:", payload.gyr_z, None, None);
-                                display_metric(ui, "MAG X:", payload.mag_x, None, None);
-                                display_metric(ui, "MAG Y:", payload.mag_y, None, None);
-                                display_metric(ui, "MAG Z:", payload.mag_z, None, None);
-                            });
+                ui.set_width(ui.available_width());
+                ui.set_max_height(height - 14.0);
+
+                egui::ScrollArea::vertical()
+                    .id_salt("payload_metrics_scroll")
+                    .auto_shrink([false; 2])
+                    .show(ui, |ui| {
+                        ui.vertical(|ui| {
+                            ui.label(RichText::new("Payload Metrics").strong());
+                            ui.separator();
+                            display_metric(ui, "ACC X:", &acc_x, None, None);
+                            display_metric(ui, "ACC Y:", &acc_y, None, None);
+                            display_metric(ui, "ACC Z:", &acc_z, None, None);
+                            display_metric(ui, "GYR X:", &gyr_x, None, None);
+                            display_metric(ui, "GYR Y:", &gyr_y, None, None);
+                            display_metric(ui, "GYR Z:", &gyr_z, None, None);
+                            display_metric(ui, "MAG X:", &mag_x, None, None);
+                            display_metric(ui, "MAG Y:", &mag_y, None, None);
+                            display_metric(ui, "MAG Z:", &mag_z, None, None);
                         });
-                });
+                    });
             });
-        }
+        });
     }
 }
 
@@ -160,7 +169,7 @@ fn display_payload_column(ui: &mut egui::Ui, frame: &IdtpFrame, col_height: f32)
 /// - `value` - given metric value.
 /// - `unit` - given metric measurement unit.
 /// - `color` - given metric value text color.
-fn display_metric(ui: &mut egui::Ui, name: &str, value: impl ToString, unit: Option<&str>, color: Option<Color32>) {
+fn display_metric(ui: &mut egui::Ui, name: &str, value: &impl ToString, unit: Option<&str>, color: Option<Color32>) {
     ui.horizontal(|ui| {
         let color = color.unwrap_or(Color32::WHITE);
 
@@ -184,7 +193,7 @@ fn display_metric(ui: &mut egui::Ui, name: &str, value: impl ToString, unit: Opt
 /// # Returns
 /// ASCII character to print.
 #[inline]
-fn to_print(ch: u8) -> char {
+const fn to_print(ch: u8) -> char {
     if ch.is_ascii_graphic() {ch as char} else {'.'}
 }
 
@@ -205,7 +214,7 @@ fn display_hex_dump(ui: &mut egui::Ui, bytes: &[u8]) {
         // Hex data representation.
         for i in 0..bytes_per_line {
             if let Some(b) = chunk.get(i) {
-                hex_line.push_str(&format!("{:02x} ", b));
+                let _ = write!(hex_line, "{b:02x} ");
             }
             else {
                 hex_line.push_str("   ");
@@ -217,7 +226,7 @@ fn display_hex_dump(ui: &mut egui::Ui, bytes: &[u8]) {
         }
 
         // ASCII data representation.
-        ascii_line.push_str("|");
+        ascii_line.push('|');
 
         for &b in chunk {
             ascii_line.push(to_print(b));

@@ -3,9 +3,6 @@
 
 //! AHRS monitor entry point.
 
-use ahrs_monitor;
-use log;
-
 #[tokio::main]
 async fn main() {
     ahrs_monitor::init();

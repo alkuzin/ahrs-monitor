@@ -30,5 +30,5 @@ pub enum AppEvent {
     /// Event for updating IMU connection status.
     UpdateConnectionStatus(bool),
     /// Event for handling received frame.
-    FrameReceived(FrameContext),
+    FrameReceived(Box<FrameContext>),
 }

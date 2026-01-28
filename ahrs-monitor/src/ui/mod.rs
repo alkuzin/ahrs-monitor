@@ -6,7 +6,7 @@
 pub mod inspector;
 
 /// Application tabs enumeration.
-#[derive(Debug, Default, PartialEq)]
+#[derive(Debug, Default, PartialEq, Eq)]
 pub enum Tab {
     /// Tab for displaying 3D model.
     #[default]

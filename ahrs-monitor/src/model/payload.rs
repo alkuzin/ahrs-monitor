@@ -9,24 +9,26 @@ use zerocopy::{FromBytes, IntoBytes, Immutable};
 #[derive(Debug, Default, Clone, Copy, IntoBytes, FromBytes, Immutable)]
 #[repr(C, packed)]
 pub struct Payload {
+    /// The value of the projection of the acceleration vector along the
+    /// X axis (m/s^2).
     pub acc_x: f32,
-    /// The value of the projection of the acceleration vector (accelerometer 1)
-    /// along the Y axis (m/s^2).
+    /// The value of the projection of the acceleration vector along the
+    /// Y axis (m/s^2).
     pub acc_y: f32,
-    /// The value of the projection of the acceleration vector (accelerometer 1)
-    /// along the Z axis (m/s^2).
+    /// The value of the projection of the acceleration vector along the
+    /// Z axis (m/s^2).
     pub acc_z: f32,
-    /// Angular velocity (gyroscope 1) along the X axis (rad/s).
+    /// Angular velocity along the X axis (rad/s).
     pub gyr_x: f32,
-    /// Angular velocity (gyroscope 1) along the Y axis (rad/s).
+    /// Angular velocity along the Y axis (rad/s).
     pub gyr_y: f32,
-    /// Angular velocity (gyroscope 1) along the Z axis (rad/s).
+    /// Angular velocity along the Z axis (rad/s).
     pub gyr_z: f32,
-    /// (Magnetometer 1) value along the X axis (Gauss).
+    /// Magnetometer value along the X axis (Gauss).
     pub mag_x: f32,
-    /// (Magnetometer 1) value along the Y axis (Gauss).
+    /// Magnetometer value along the Y axis (Gauss).
     pub mag_y: f32,
-    /// (Magnetometer 1) value along the Z axis (Gauss).
+    /// Magnetometer value along the Z axis (Gauss).
     pub mag_z: f32,
 }
 

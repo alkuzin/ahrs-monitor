@@ -3,6 +3,17 @@
 
 //! AHRS cross-platform telemetry station.
 
+#![warn(clippy::all, clippy::pedantic, clippy::nursery)]
+#![deny(
+    clippy::unwrap_used,
+    clippy::expect_used,
+    clippy::indexing_slicing,
+    clippy::panic,
+    clippy::todo,
+    clippy::unreachable,
+    missing_docs
+)]
+
 pub mod app;
 pub mod config;
 pub mod core;
@@ -37,10 +48,10 @@ fn init_logging(filter: LevelFilter) {
             let level = record.level();
             let args = record.args();
 
-            writeln!(buf, "[{}][{}][{}] {}", timestamp, level, target, args)
+            writeln!(buf, "[{timestamp}][{level}][{target}] {args}")
         });
 
-        builder.init()
+        builder.init();
     });
 }
 
@@ -55,6 +66,9 @@ pub fn init() {
 /// # Returns
 /// - `Ok`  - in case of success.
 /// - `Err` - otherwise.
+///
+/// # Errors
+/// - Eframe errors.
 pub fn run() -> eframe::Result {
     let (tx, rx) = mpsc::channel::<AppEvent>(config::MPSC_CHANNEL_BUFFER_SIZE);
     
@@ -63,7 +77,7 @@ pub fn run() -> eframe::Result {
         let mut ingester = Ingester::new(tx);
 
         if let Err(e) = ingester.run().await {
-            log::error!("Core service failed: {:?}", e);
+            log::error!("Core service failed: {e:?}");
         }
     });
 

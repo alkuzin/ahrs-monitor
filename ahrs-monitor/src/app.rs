@@ -37,7 +37,7 @@ impl eframe::App for App {
     /// - `frame` - given surroundings of the app.
     fn update(&mut self, ctx: &Context, _frame: &mut Frame) {
         TopBottomPanel::top("top_panel").show(ctx, |ui| self.display_top_panel(ui));
-        CentralPanel::default().show(&ctx, |ui| self.display_central_panel(ui) );
+        CentralPanel::default().show(ctx, |ui| self.display_central_panel(ui) );
         TopBottomPanel::bottom("bottom_panel").show(ctx, |ui| self.display_bottom_panel(ui, ctx));
 
         self.handle_events();
@@ -54,10 +54,11 @@ impl App {
     ///
     /// # Returns
     /// - New `App` object.
+    #[must_use]
     pub fn new(rx: Receiver<AppEvent>) -> Self {
         Self {
             rx,
-            current_tab: Default::default(),
+            current_tab: Tab::default(),
             fps: 0.0,
             frame_counter: 0,
             connection_status: false,
@@ -75,8 +76,9 @@ impl App {
     ///
     /// # Returns
     /// - Smoothed number of frames per second.
+    #[allow(clippy::cast_possible_truncation)]
     fn fps(&mut self, ctx: &Context) -> usize {
-        let current_fps = 1.0 / ctx.input(|i| i.stable_dt as f64);
+        let current_fps = 1.0 / ctx.input(|i| f64::from(i.stable_dt));
 
         // Smoothing coefficient.
         let alpha = 0.1;
@@ -85,10 +87,13 @@ impl App {
             self.fps = current_fps;
         }
         else {
-            self.fps = self.fps + alpha * (current_fps - self.fps)
-        };
+            self.fps = self.fps + alpha * (current_fps - self.fps);
+        }
 
-        self.fps as usize
+        #[allow(clippy::cast_sign_loss)]
+        {
+            self.fps.max(0.0).round() as usize
+        }
     }
 
     /// Display top panel.
@@ -97,6 +102,7 @@ impl App {
     /// - `ui` - given screen UI handler.
     fn display_top_panel(&mut self, ui: &mut egui::Ui) {
         ui.horizontal(|ui| {
+            // TODO: get titles from tabs trait method`.
             ui.selectable_value(&mut self.current_tab, Tab::Dashboard, "🗖 Dashboard");
             ui.selectable_value(&mut self.current_tab, Tab::Telemetry, "📈 Telemetry");
             ui.selectable_value(&mut self.current_tab, Tab::Inspector, "🔍 Packet Inspector");
@@ -106,7 +112,7 @@ impl App {
             ui.checkbox(&mut self.is_paused, "⏸ Pause Stream");
 
             if self.is_paused {
-                ui.label(RichText::new("Paused").color(Color32::YELLOW));
+                ui.label(RichText::new("(PAUSED)").color(Color32::YELLOW));
             }
         });
     }
@@ -115,11 +121,12 @@ impl App {
     ///
     /// # Parameters
     /// - `ui` - given screen UI handler.
-    fn display_central_panel(&mut self, ui: &mut egui::Ui) {
+    fn display_central_panel(&self, ui: &mut egui::Ui) {
         match self.current_tab {
+            // TODO: add trait for Tabs.
             Tab::Inspector => inspector::display_tab(ui, &self.current_frame),
-            Tab::Dashboard => self.view_dashboard_tab(ui),
-            Tab::Telemetry => self.view_telemetry_tab(ui),
+            Tab::Dashboard => Self::view_dashboard_tab(ui),
+            Tab::Telemetry => Self::view_telemetry_tab(ui),
         }
     }
 
@@ -180,14 +187,14 @@ impl App {
                     self.connection_status = status;
                 },
                 AppEvent::FrameReceived(frame_ctx) => {
-                    self.history.push_back(frame_ctx.clone());
+                    self.history.push_back(*frame_ctx.clone());
 
                     if self.history.len() > config::HISTORY_MAX_SIZE {
                         self.history.pop_front();
                     }
 
                     if !self.is_paused {
-                        self.current_frame = Some(frame_ctx);
+                        self.current_frame = Some(*frame_ctx);
                     }
                 },
             }
@@ -198,7 +205,7 @@ impl App {
     ///
     /// # Parameters
     /// - `ui` - given screen UI handler.
-    fn view_dashboard_tab(&mut self, ui: &mut egui::Ui) {
+    fn view_dashboard_tab(ui: &mut egui::Ui) {
         ui.label("Dashboard");
     }
 
@@ -206,7 +213,7 @@ impl App {
     ///
     /// # Parameters
     /// - `ui` - given screen UI handler.
-    fn view_telemetry_tab(&mut self, ui: &mut egui::Ui) {
+    fn view_telemetry_tab(ui: &mut egui::Ui) {
         ui.label("Telemetry");
     }
 }

@@ -3,6 +3,7 @@
 
 //! IMU communication handler.
 
+use anyhow::anyhow;
 use tsilna_nav::protocol::idtp::{IdtpFrame, IDTP_FRAME_MAX_SIZE};
 use tokio::{net::UdpSocket, sync::mpsc::Sender, time};
 use crate::{config, model::{AppEvent, FrameContext}};
@@ -21,11 +22,17 @@ impl Ingester {
     /// 
     /// # Returns
     /// - New `Ingester` object.
-    pub fn new(tx: Sender<AppEvent>) -> Self {
+    #[must_use]
+    pub const fn new(tx: Sender<AppEvent>) -> Self {
         Self { tx }
     }
 
     /// Start communication with IMU.
+    ///
+    /// # Errors
+    /// - Error to sending data over MPSC.
+    /// - IDTP frame parsing error.
+    /// - Receiving data over Wi-Fi error.
     pub async fn run(&mut self) -> anyhow::Result<()> {
         log::info!("Running Ingester");
 
@@ -54,37 +61,37 @@ impl Ingester {
             tokio::select! {
                 recv = socket.recv_from(&mut buffer) => {
                     let (len, _addr) = recv?;
-                    let raw_frame = &buffer[..len];
-                    let mut is_valid = true;
+                    let raw_frame = buffer.get(..len).ok_or_else(|| anyhow!("Buffer underflow"))?;
 
-                    if IdtpFrame::validate(&raw_frame, None).is_err() {
+                    let mut is_valid = if IdtpFrame::validate(raw_frame, None).is_err() {
                         bad_packets += 1;
-                        is_valid = false;
+                        false
                     }
+                    else {
+                        true
+                    };
 
-                    let frame = match IdtpFrame::try_from(raw_frame) {
-                        Ok(frame) => {
-                            if let Some(header) = frame.header() {
-                                // Checking correctness of the sequence number.
-                                let sequence = header.sequence;
+                    let frame = if let Ok(frame) = IdtpFrame::try_from(raw_frame) {
+                        if let Some(header) = frame.header() {
+                            // Checking correctness of the sequence number.
+                            let sequence = header.sequence;
 
-                                if sequence <= prev_sequence {
-                                    bad_packets += 1;
-                                    is_valid = false;
-                                }
-
-                                prev_sequence = sequence;
-                                Some(frame)
-                            }
-                            else {
+                            if sequence <= prev_sequence {
                                 bad_packets += 1;
-                                None
+                                is_valid = false;
                             }
-                        },
-                        Err(_) => {
+
+                            prev_sequence = sequence;
+                            Some(frame)
+                        }
+                        else {
                             bad_packets += 1;
                             None
                         }
+                    }
+                    else {
+                        bad_packets += 1;
+                        None
                     };
 
                     total_packets += 1;
@@ -99,7 +106,7 @@ impl Ingester {
                         raw_frame: raw_frame.to_vec(),
                     };
 
-                    let _ = self.tx.send(AppEvent::FrameReceived(frame_ctx)).await;
+                    let _ = self.tx.send(AppEvent::FrameReceived(Box::new(frame_ctx))).await;
 
                 }
                 _ = begin_interval.tick() => {
