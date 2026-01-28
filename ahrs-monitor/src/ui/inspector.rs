@@ -3,40 +3,62 @@
 
 //! Packet inspector tab user interface implementation.
 
-use crate::model::{FrameContext, payload::Payload};
+use crate::{
+    model::{FrameContext, payload::Payload},
+    ui::TabViewer,
+};
 use eframe::epaint::Color32;
 use egui::{Layout, RichText};
 use std::fmt::Write;
 use tsilna_nav::protocol::idtp::{IdtpFrame, Mode};
 use zerocopy::FromBytes;
 
-/// Display packet inspector tab.
-///
-/// # Parameters
-/// - `ui` - given screen UI handler.
-/// - `current_frame` - given current frame context to handle.
-pub fn display_tab(ui: &mut egui::Ui, current_frame: &Option<FrameContext>) {
-    if let Some(frame_ctx) = current_frame
-        && let Some(frame) = &frame_ctx.frame
-    {
-        ui.horizontal_top(|ui| {
-            let mut col_height: Option<f32> = None;
+/// Packet inspector tab handler.
+pub struct InspectorTab;
 
-            let desired_size = egui::vec2(512.0, ui.available_height());
-            ui.allocate_ui(desired_size, |ui| {
-                col_height = display_hex_dump_column(ui, frame_ctx, frame);
+impl TabViewer for InspectorTab {
+    /// Get tab title.
+    ///
+    /// # Returns
+    /// - Tab title string slice.
+    fn title(&self) -> &'static str {
+        "Packet Inspector"
+    }
+
+    /// Get tab icon.
+    ///
+    /// # Returns
+    /// - Tab icon string slice.
+    fn icon(&self) -> &'static str {
+        "🔍"
+    }
+
+    /// Display tab.
+    ///
+    /// # Parameters
+    /// - `ui` - given screen UI handler.
+    /// - `frame_ctx` - given current frame context to handle.
+    fn ui(&mut self, ui: &mut egui::Ui, frame_ctx: &FrameContext) {
+        if let Some(frame) = &frame_ctx.frame {
+            ui.horizontal_top(|ui| {
+                let mut col_height: Option<f32> = None;
+
+                let desired_size = egui::vec2(512.0, ui.available_height());
+                ui.allocate_ui(desired_size, |ui| {
+                    col_height = display_hex_dump_column(ui, frame_ctx, frame);
+                });
+
+                ui.add_space(8.0);
+
+                let desired_size =
+                    egui::vec2(ui.available_width(), ui.available_height());
+                ui.allocate_ui(desired_size, |ui| {
+                    if let Some(height) = col_height {
+                        display_payload_column(ui, frame, height);
+                    }
+                });
             });
-
-            ui.add_space(8.0);
-
-            let desired_size =
-                egui::vec2(ui.available_width(), ui.available_height());
-            ui.allocate_ui(desired_size, |ui| {
-                if let Some(height) = col_height {
-                    display_payload_column(ui, frame, height);
-                }
-            });
-        });
+        }
     }
 }
 
