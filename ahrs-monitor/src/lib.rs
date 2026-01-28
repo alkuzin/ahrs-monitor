@@ -56,8 +56,7 @@ pub fn init() {
 /// - `Ok`  - in case of success.
 /// - `Err` - otherwise.
 pub fn run() -> eframe::Result {
-    // TODO: handle MPSC channel buffer size.
-    let (tx, rx) = mpsc::channel::<AppEvent>(128);
+    let (tx, rx) = mpsc::channel::<AppEvent>(config::MPSC_CHANNEL_BUFFER_SIZE);
     
     // Spawning a new asynchronous task for handling IDTP frames.
     tokio::spawn(async move {

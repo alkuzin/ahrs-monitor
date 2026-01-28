@@ -26,3 +26,6 @@ pub const UDP_PORT: u16 = 10000;
 
 /// Max size of frame contexts history.
 pub const HISTORY_MAX_SIZE: usize = 32;
+
+/// MPSC channel max number of messages in the buffer.
+pub const MPSC_CHANNEL_BUFFER_SIZE: usize = 128;
