@@ -71,6 +71,8 @@ pub fn run() -> eframe::Result {
     // Setting options controlling the behavior of a native window.
     let options = eframe::NativeOptions {
         viewport: egui::ViewportBuilder::default()
+            .with_resizable(false)
+            .with_maximize_button(false)
             .with_inner_size(config::APP_WINDOW_SIZE),
         hardware_acceleration: HardwareAcceleration::Required,
         ..Default::default()

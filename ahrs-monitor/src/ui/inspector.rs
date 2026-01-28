@@ -3,10 +3,13 @@
 
 //! Packet inspector tab user interface implementation.
 
+use crate::{model::{FrameContext, payload::Payload}, config};
+use tsilna_nav::protocol::idtp::{IdtpFrame, Mode};
+use zerocopy::FromBytes;
 use eframe::epaint::Color32;
-use egui::RichText;
-use tsilna_nav::protocol::idtp::Mode;
-use crate::model::FrameContext;
+use egui::{Layout, RichText};
+
+// TODO: fix FPS = 0 issue.
 
 /// Display packet inspector tab.
 ///
@@ -15,69 +18,131 @@ use crate::model::FrameContext;
 /// - `current_frame` - given current frame context to handle.
 pub fn display_tab(ui: &mut egui::Ui, current_frame: &Option<FrameContext>) {
     ui.vertical(|ui| {
-        // Frames hex dump.
-        egui::ScrollArea::vertical().id_salt("inspector_scroll").show(ui, |ui| {
-            ui.columns(2, |cols| {
-                cols[0].label(RichText::new("Hex dump").strong());
-                cols[1].label(RichText::new("Frame info").strong());
-            });
-            ui.separator();
-
-            if let Some(frame_ctx) = current_frame {
-                ui.columns(2, |cols| {
+        egui::Grid::new("packet_inspector_grid")
+            .num_columns(2)
+            .min_row_height(config::APP_WINDOW_HEIGHT)
+            .spacing([8.0, 4.0])
+            .show(ui, |ui| {
+                if let Some(frame_ctx) = current_frame {
                     if let Some(frame) = frame_ctx.frame {
-                        // TODO: display payload.
-                        // TODO: increase hex dump text area width.
-                        let header = frame.header();
-                        let preamble = header.preamble.to_le_bytes();
-                        let preamble = std::str::from_utf8(&preamble).unwrap_or("Unknown");
-                        let timestamp = header.timestamp;
-                        let sequence = header.sequence;
-                        let device_id = header.device_id;
-                        let payload_size = header.payload_size;
-                        let version = header.version;
-                        let version_major = (version >> 4) & 0x0F;
-                        let version_minor = version & 0x0F;
-                        let version = format!("v{}.{}", version_major, version_minor);
-                        let mode = Mode::from(header.mode);
-
-                        let payload_type = header.payload_type;
-                        let crc = header.crc;
-
-                        let (mode_label, mode_color) = match mode {
-                            Mode::Lite => ("IDTP-L", Color32::RED),
-                            Mode::Safety => ("IDTP-S (CRC-32)", Color32::LIGHT_BLUE),
-                            Mode::Secure => ("IDTP-SEC (HMAC-SHA256)", Color32::GREEN),
-                            Mode::Unknown => ("Unknown", Color32::GRAY),
-                        };
-
-                        let (valid_label, valid_color) = if frame_ctx.is_valid {
-                            ("VALID", Color32::GREEN)
+                        if let Some(col_height) = display_hex_dump_column(ui, frame_ctx, &frame) {
+                            display_payload_column(ui, &frame, col_height);
                         }
-                        else {
-                            ("INVALID", Color32::RED)
-                        };
+                    }
+                }
+            });
 
-                        cols[0].group(|ui| display_hex_dump(ui, &frame_ctx.raw_frame));
-                        cols[1].vertical(|ui| {
-                            ui.group(|ui| {
-                                display_metric(ui, "Frame: is", valid_label, None, Some(valid_color));
-                                display_metric(ui, "Preamble:", preamble, None, None);
-                                display_metric(ui, "Timestamp:", timestamp, Some("µs"), None);
-                                display_metric(ui, "Sequence:", sequence, None, None);
-                                display_metric(ui, "Device ID:", device_id, None, None);
-                                display_metric(ui, "Payload Size:", payload_size, None, None);
-                                display_metric(ui, "Protocol Mode:", mode_label, None, Some(mode_color));
-                                display_metric(ui, "Version:", version, None, None);
-                                display_metric(ui, "Payload Type:", payload_type, None, None);
-                                display_metric(ui, "CRC:", crc, None, None);
+        ui.end_row();
+    });
+}
+
+/// Display hex dump column user interface.
+///
+/// # Parameters
+/// - `ui` - given screen UI handler.
+/// - `frame_ctx` - given frame context to handle.
+/// - `frame` - given IDTP frame to handle.
+///
+/// # Returns
+/// - Column height if frame and its contents are valid.
+/// - `None` - otherwise.
+fn display_hex_dump_column(ui: &mut egui::Ui, frame_ctx: &FrameContext, frame: &IdtpFrame) -> Option<f32> {
+    if let Some(header) = frame.header() {
+        let preamble = header.preamble.to_le_bytes();
+        let preamble = std::str::from_utf8(&preamble).unwrap_or("Unknown");
+        let timestamp = header.timestamp;
+        let sequence = header.sequence;
+        let device_id = header.device_id;
+        let payload_size = header.payload_size;
+        let version = header.version;
+        let version_major = (version >> 4) & 0x0F;
+        let version_minor = version & 0x0F;
+        let version = format!("v{}.{}", version_major, version_minor);
+        let mode = Mode::from(header.mode);
+        let payload_type = header.payload_type;
+        let crc = header.crc;
+
+        let (mode_label, mode_color) = match mode {
+            Mode::Lite => ("IDTP-L", Color32::RED),
+            Mode::Safety => ("IDTP-S (CRC-32)", Color32::LIGHT_BLUE),
+            Mode::Secure => ("IDTP-SEC (HMAC-SHA256)", Color32::GREEN),
+            Mode::Unknown => ("Unknown", Color32::GRAY),
+        };
+
+        let (valid_label, valid_color) = if frame_ctx.is_valid {
+            ("VALID", Color32::GREEN)
+        } else {
+            ("INVALID", Color32::RED)
+        };
+
+        let col1_rect = ui.with_layout(Layout::top_down(egui::Align::LEFT), |ui| {
+            // Displaying hex dump of the frame bytes.
+            ui.group(|ui| {
+                ui.set_min_width(512.0);
+                display_hex_dump(ui, &frame_ctx.raw_frame);
+            });
+
+            ui.add_space(16.0);
+
+            // Displaying IDTP header info.
+            ui.group(|ui| {
+                display_metric(ui, "Frame: is", valid_label, None, Some(valid_color));
+                display_metric(ui, "Preamble:", preamble, None, None);
+                display_metric(ui, "Timestamp:", timestamp, Some("µs"), None);
+                display_metric(ui, "Sequence:", sequence, None, None);
+                display_metric(ui, "Device ID:", device_id, None, None);
+                display_metric(ui, "Payload Size:", payload_size, Some("bytes"), None);
+                display_metric(ui, "Protocol Mode:", mode_label, None, Some(mode_color));
+                display_metric(ui, "Version:", version, None, None);
+                display_metric(ui, "Payload Type:", payload_type, None, None);
+                display_metric(ui, "CRC:", crc, None, None);
+            });
+        });
+
+        return Some(col1_rect.response.rect.height());
+    }
+
+    None
+}
+
+/// Display payload metrics column user interface.
+///
+/// # Parameters
+/// - `ui` - given screen UI handler.
+/// - `frame` - given IDTP frame to handle.
+/// - `col_height` - given hex dump column height in pixels.
+fn display_payload_column(ui: &mut egui::Ui, frame: &IdtpFrame, col_height: f32) {
+    if let Ok(payload_bytes) = frame.payload() {
+        if let Ok(payload) = Payload::read_from_prefix(&payload_bytes) {
+            let payload = payload.0;
+
+            ui.with_layout(Layout::top_down(egui::Align::LEFT), |ui| {
+                ui.group(|ui| {
+                    ui.set_width(ui.available_width());
+                    ui.set_max_height(col_height - 14.0);
+
+                    egui::ScrollArea::vertical()
+                        .id_salt("payload_metrics_scroll")
+                        .auto_shrink([false; 2])
+                        .show(ui, |ui| {
+                            ui.vertical(|ui| {
+                                ui.label(RichText::new("Payload Metrics").strong());
+                                ui.separator();
+                                display_metric(ui, "ACC X:", payload.acc_x, None, None);
+                                display_metric(ui, "ACC Y:", payload.acc_y, None, None);
+                                display_metric(ui, "ACC Z:", payload.acc_z, None, None);
+                                display_metric(ui, "GYR X:", payload.gyr_x, None, None);
+                                display_metric(ui, "GYR Y:", payload.gyr_y, None, None);
+                                display_metric(ui, "GYR Z:", payload.gyr_z, None, None);
+                                display_metric(ui, "MAG X:", payload.mag_x, None, None);
+                                display_metric(ui, "MAG Y:", payload.mag_y, None, None);
+                                display_metric(ui, "MAG Z:", payload.mag_z, None, None);
                             });
                         });
-                    }
                 });
-            }
-        });
-    });
+            });
+        }
+    }
 }
 
 /// Display custom metric.
