@@ -3,7 +3,7 @@
 
 //! IDTP frame payload.
 
-use zerocopy::{FromBytes, IntoBytes, Immutable};
+use zerocopy::{FromBytes, Immutable, IntoBytes};
 
 /// IDTP payload struct.
 #[derive(Debug, Default, Clone, Copy, IntoBytes, FromBytes, Immutable)]

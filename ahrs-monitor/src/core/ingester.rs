@@ -3,10 +3,13 @@
 
 //! IMU communication handler.
 
+use crate::{
+    config,
+    model::{AppEvent, FrameContext},
+};
 use anyhow::anyhow;
-use tsilna_nav::protocol::idtp::{IdtpFrame, IDTP_FRAME_MAX_SIZE};
 use tokio::{net::UdpSocket, sync::mpsc::Sender, time};
-use crate::{config, model::{AppEvent, FrameContext}};
+use tsilna_nav::protocol::idtp::{IDTP_FRAME_MAX_SIZE, IdtpFrame};
 
 /// Mediator between AHRS monitor and IMU.
 pub struct Ingester {
@@ -16,10 +19,10 @@ pub struct Ingester {
 
 impl Ingester {
     /// Construct new `Ingester` object.
-    /// 
+    ///
     /// # Parameters
     /// - `tx` - given MPSC sender handle.
-    /// 
+    ///
     /// # Returns
     /// - New `Ingester` object.
     #[must_use]
@@ -40,9 +43,9 @@ impl Ingester {
         let bind_result = UdpSocket::bind(pair).await;
 
         // Sending UDP connection status.
-        self.tx.send(
-            AppEvent::UpdateConnectionStatus(bind_result.is_ok())
-        ).await?;
+        self.tx
+            .send(AppEvent::UpdateConnectionStatus(bind_result.is_ok()))
+            .await?;
 
         let socket = bind_result?;
         let mut buffer = [0u8; IDTP_FRAME_MAX_SIZE];
@@ -55,7 +58,8 @@ impl Ingester {
         let mut packets_in_last_second = 0;
         let mut current_pps = 0;
 
-        let mut begin_interval = tokio::time::interval(time::Duration::from_secs(1));
+        let mut begin_interval =
+            tokio::time::interval(time::Duration::from_secs(1));
 
         loop {
             tokio::select! {

@@ -20,15 +20,15 @@ pub mod core;
 pub mod model;
 pub mod ui;
 
-use eframe::{egui, HardwareAcceleration};
+use crate::app::App;
+use crate::core::Ingester;
+use crate::model::AppEvent;
 use chrono::Local;
+use eframe::{HardwareAcceleration, egui};
 use env_logger::Builder;
 use log::LevelFilter;
 use std::{io::Write, sync::Once};
-use crate::core::{Ingester};
 use tokio::sync::mpsc;
-use crate::app::App;
-use crate::model::AppEvent;
 
 /// Used in order to ensure that the initialization code runs only once.
 static INIT: Once = Once::new();
@@ -71,7 +71,7 @@ pub fn init() {
 /// - Eframe errors.
 pub fn run() -> eframe::Result {
     let (tx, rx) = mpsc::channel::<AppEvent>(config::MPSC_CHANNEL_BUFFER_SIZE);
-    
+
     // Spawning a new asynchronous task for handling IDTP frames.
     tokio::spawn(async move {
         let mut ingester = Ingester::new(tx);

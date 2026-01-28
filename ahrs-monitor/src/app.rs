@@ -3,11 +3,17 @@
 
 //! Application handler related declarations.
 
-use std::collections::VecDeque;
+use crate::{
+    config,
+    model::{AppEvent, FrameContext},
+    ui::{Tab, inspector},
+};
 use eframe::Frame;
-use egui::{Align, CentralPanel, Color32, Context, Layout, RichText, TopBottomPanel};
-use tokio::sync::mpsc::{Receiver};
-use crate::{config, model::{AppEvent, FrameContext}, ui::{inspector, Tab}};
+use egui::{
+    Align, CentralPanel, Color32, Context, Layout, RichText, TopBottomPanel,
+};
+use std::collections::VecDeque;
+use tokio::sync::mpsc::Receiver;
 
 /// Application handler.
 pub struct App {
@@ -36,9 +42,11 @@ impl eframe::App for App {
     /// - `ctx` - given egui context to handle.
     /// - `frame` - given surroundings of the app.
     fn update(&mut self, ctx: &Context, _frame: &mut Frame) {
-        TopBottomPanel::top("top_panel").show(ctx, |ui| self.display_top_panel(ui));
-        CentralPanel::default().show(ctx, |ui| self.display_central_panel(ui) );
-        TopBottomPanel::bottom("bottom_panel").show(ctx, |ui| self.display_bottom_panel(ui, ctx));
+        TopBottomPanel::top("top_panel")
+            .show(ctx, |ui| self.display_top_panel(ui));
+        CentralPanel::default().show(ctx, |ui| self.display_central_panel(ui));
+        TopBottomPanel::bottom("bottom_panel")
+            .show(ctx, |ui| self.display_bottom_panel(ui, ctx));
 
         self.handle_events();
         self.frame_counter += 1;
@@ -85,8 +93,7 @@ impl App {
 
         if self.frame_counter <= 1 {
             self.fps = current_fps;
-        }
-        else {
+        } else {
             self.fps = self.fps + alpha * (current_fps - self.fps);
         }
 
@@ -103,9 +110,21 @@ impl App {
     fn display_top_panel(&mut self, ui: &mut egui::Ui) {
         ui.horizontal(|ui| {
             // TODO: get titles from tabs trait method`.
-            ui.selectable_value(&mut self.current_tab, Tab::Dashboard, "🗖 Dashboard");
-            ui.selectable_value(&mut self.current_tab, Tab::Telemetry, "📈 Telemetry");
-            ui.selectable_value(&mut self.current_tab, Tab::Inspector, "🔍 Packet Inspector");
+            ui.selectable_value(
+                &mut self.current_tab,
+                Tab::Dashboard,
+                "🗖 Dashboard",
+            );
+            ui.selectable_value(
+                &mut self.current_tab,
+                Tab::Telemetry,
+                "📈 Telemetry",
+            );
+            ui.selectable_value(
+                &mut self.current_tab,
+                Tab::Inspector,
+                "🔍 Packet Inspector",
+            );
         });
         ui.separator();
         ui.horizontal(|ui| {
@@ -139,8 +158,7 @@ impl App {
         ui.horizontal(|ui| {
             let connection_label = if self.connection_status {
                 RichText::new("CONNECTED").color(Color32::GREEN)
-            }
-            else {
+            } else {
                 RichText::new("DISCONNECTED").color(Color32::RED)
             };
 
@@ -167,9 +185,8 @@ impl App {
                 _ => Color32::GRAY,
             };
 
-            let fps_label = RichText::new(
-                format!("FPS: {current_fps}")
-            ).color(fps_color);
+            let fps_label =
+                RichText::new(format!("FPS: {current_fps}")).color(fps_color);
             ui.label(fps_label);
             ui.separator();
 
@@ -185,7 +202,7 @@ impl App {
             match event {
                 AppEvent::UpdateConnectionStatus(status) => {
                     self.connection_status = status;
-                },
+                }
                 AppEvent::FrameReceived(frame_ctx) => {
                     self.history.push_back(*frame_ctx.clone());
 
@@ -196,7 +213,7 @@ impl App {
                     if !self.is_paused {
                         self.current_frame = Some(*frame_ctx);
                     }
-                },
+                }
             }
         }
     }

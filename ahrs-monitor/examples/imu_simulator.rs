@@ -3,11 +3,14 @@
 
 //! Simulator of sending IDTP frames over UDP.
 
-use tsilna_nav::{protocol::idtp::{IdtpHeader, IdtpFrame, Mode}, math::rng::Xorshift};
 use ahrs_monitor::model::payload::Payload;
-use zerocopy::IntoBytes;
-use tokio::{net::UdpSocket, time::Instant};
 use std::{ops::Range, time::Duration};
+use tokio::{net::UdpSocket, time::Instant};
+use tsilna_nav::{
+    math::rng::Xorshift,
+    protocol::idtp::{IdtpFrame, IdtpHeader, Mode},
+};
+use zerocopy::IntoBytes;
 
 /// Pseudo-random accelerometer readings range.
 const RNG_ACC_RANGE: Range<f32> = -39.22..39.22; // +-4g.

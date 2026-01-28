@@ -3,12 +3,12 @@
 
 //! Packet inspector tab user interface implementation.
 
-use std::fmt::Write;
 use crate::model::{FrameContext, payload::Payload};
-use tsilna_nav::protocol::idtp::{IdtpFrame, Mode};
-use zerocopy::FromBytes;
 use eframe::epaint::Color32;
 use egui::{Layout, RichText};
+use std::fmt::Write;
+use tsilna_nav::protocol::idtp::{IdtpFrame, Mode};
+use zerocopy::FromBytes;
 
 /// Display packet inspector tab.
 ///
@@ -17,28 +17,27 @@ use egui::{Layout, RichText};
 /// - `current_frame` - given current frame context to handle.
 pub fn display_tab(ui: &mut egui::Ui, current_frame: &Option<FrameContext>) {
     if let Some(frame_ctx) = current_frame
-        && let Some(frame) = &frame_ctx.frame {
-            ui.horizontal_top(|ui| {
-                let mut col_height: Option<f32> = None;
+        && let Some(frame) = &frame_ctx.frame
+    {
+        ui.horizontal_top(|ui| {
+            let mut col_height: Option<f32> = None;
 
-                let desired_size = egui::vec2(512.0, ui.available_height());
-                ui.allocate_ui(desired_size, |ui| {
-                    col_height = display_hex_dump_column(ui, frame_ctx, frame);
-                });
-
-                ui.add_space(8.0);
-
-                let desired_size = egui::vec2(
-                    ui.available_width(),
-                    ui.available_height()
-                );
-                ui.allocate_ui(desired_size, |ui| {
-                    if let Some(height) = col_height {
-                        display_payload_column(ui, frame, height);
-                    }
-                });
+            let desired_size = egui::vec2(512.0, ui.available_height());
+            ui.allocate_ui(desired_size, |ui| {
+                col_height = display_hex_dump_column(ui, frame_ctx, frame);
             });
-        }
+
+            ui.add_space(8.0);
+
+            let desired_size =
+                egui::vec2(ui.available_width(), ui.available_height());
+            ui.allocate_ui(desired_size, |ui| {
+                if let Some(height) = col_height {
+                    display_payload_column(ui, frame, height);
+                }
+            });
+        });
+    }
 }
 
 /// Display hex dump column user interface.
@@ -51,7 +50,11 @@ pub fn display_tab(ui: &mut egui::Ui, current_frame: &Option<FrameContext>) {
 /// # Returns
 /// - Column height if frame and its contents are valid.
 /// - `None` - otherwise.
-fn display_hex_dump_column(ui: &mut egui::Ui, frame_ctx: &FrameContext, frame: &IdtpFrame) -> Option<f32> {
+fn display_hex_dump_column(
+    ui: &mut egui::Ui,
+    frame_ctx: &FrameContext,
+    frame: &IdtpFrame,
+) -> Option<f32> {
     if let Some(header) = frame.header() {
         let preamble = header.preamble.to_le_bytes();
         let preamble = std::str::from_utf8(&preamble).unwrap_or("Unknown");
@@ -80,29 +83,60 @@ fn display_hex_dump_column(ui: &mut egui::Ui, frame_ctx: &FrameContext, frame: &
             ("INVALID", Color32::RED)
         };
 
-        let col1_rect = ui.with_layout(Layout::top_down(egui::Align::LEFT), |ui| {
-            // Displaying hex dump of the frame bytes.
-            ui.group(|ui| {
-                // ui.set_min_width(512.0);
-                display_hex_dump(ui, &frame_ctx.raw_frame);
-            });
+        let col1_rect =
+            ui.with_layout(Layout::top_down(egui::Align::LEFT), |ui| {
+                // Displaying hex dump of the frame bytes.
+                ui.group(|ui| {
+                    // ui.set_min_width(512.0);
+                    display_hex_dump(ui, &frame_ctx.raw_frame);
+                });
 
-            ui.add_space(16.0);
+                ui.add_space(16.0);
 
-            // Displaying IDTP header info.
-            ui.group(|ui| {
-                display_metric(ui, "Frame: is", &valid_label, None, Some(valid_color));
-                display_metric(ui, "Preamble:", &preamble, None, None);
-                display_metric(ui, "Timestamp:", &timestamp, Some("µs"), None);
-                display_metric(ui, "Sequence:", &sequence, None, None);
-                display_metric(ui, "Device ID:", &device_id, None, None);
-                display_metric(ui, "Payload Size:", &payload_size, Some("bytes"), None);
-                display_metric(ui, "Protocol Mode:", &mode_label, None, Some(mode_color));
-                display_metric(ui, "Version:", &version, None, None);
-                display_metric(ui, "Payload Type:", &payload_type, None, None);
-                display_metric(ui, "CRC:", &crc, None, None);
+                // Displaying IDTP header info.
+                ui.group(|ui| {
+                    display_metric(
+                        ui,
+                        "Frame: is",
+                        &valid_label,
+                        None,
+                        Some(valid_color),
+                    );
+                    display_metric(ui, "Preamble:", &preamble, None, None);
+                    display_metric(
+                        ui,
+                        "Timestamp:",
+                        &timestamp,
+                        Some("µs"),
+                        None,
+                    );
+                    display_metric(ui, "Sequence:", &sequence, None, None);
+                    display_metric(ui, "Device ID:", &device_id, None, None);
+                    display_metric(
+                        ui,
+                        "Payload Size:",
+                        &payload_size,
+                        Some("bytes"),
+                        None,
+                    );
+                    display_metric(
+                        ui,
+                        "Protocol Mode:",
+                        &mode_label,
+                        None,
+                        Some(mode_color),
+                    );
+                    display_metric(ui, "Version:", &version, None, None);
+                    display_metric(
+                        ui,
+                        "Payload Type:",
+                        &payload_type,
+                        None,
+                        None,
+                    );
+                    display_metric(ui, "CRC:", &crc, None, None);
+                });
             });
-        });
 
         return Some(col1_rect.response.rect.height());
     }
@@ -116,10 +150,15 @@ fn display_hex_dump_column(ui: &mut egui::Ui, frame_ctx: &FrameContext, frame: &
 /// - `ui` - given screen UI handler.
 /// - `frame` - given IDTP frame to handle.
 /// - `col_height` - given hex dump column height in pixels.
-fn display_payload_column(ui: &mut egui::Ui, frame: &IdtpFrame, col_height: f32) {
+fn display_payload_column(
+    ui: &mut egui::Ui,
+    frame: &IdtpFrame,
+    col_height: f32,
+) {
     if let Ok(payload_bytes) = frame.payload()
-        && let Ok(payload) = Payload::read_from_prefix(payload_bytes) {
-            let payload = payload.0;
+        && let Ok(payload) = Payload::read_from_prefix(payload_bytes)
+    {
+        let payload = payload.0;
 
         let acc_x = payload.acc_x;
         let acc_y = payload.acc_y;
@@ -169,7 +208,13 @@ fn display_payload_column(ui: &mut egui::Ui, frame: &IdtpFrame, col_height: f32)
 /// - `value` - given metric value.
 /// - `unit` - given metric measurement unit.
 /// - `color` - given metric value text color.
-fn display_metric(ui: &mut egui::Ui, name: &str, value: &impl ToString, unit: Option<&str>, color: Option<Color32>) {
+fn display_metric(
+    ui: &mut egui::Ui,
+    name: &str,
+    value: &impl ToString,
+    unit: Option<&str>,
+    color: Option<Color32>,
+) {
     ui.horizontal(|ui| {
         let color = color.unwrap_or(Color32::WHITE);
 
@@ -179,7 +224,6 @@ fn display_metric(ui: &mut egui::Ui, name: &str, value: &impl ToString, unit: Op
         if let Some(unit) = unit {
             ui.label(unit);
         }
-
     });
 
     ui.separator();
@@ -194,7 +238,11 @@ fn display_metric(ui: &mut egui::Ui, name: &str, value: &impl ToString, unit: Op
 /// ASCII character to print.
 #[inline]
 const fn to_print(ch: u8) -> char {
-    if ch.is_ascii_graphic() {ch as char} else {'.'}
+    if ch.is_ascii_graphic() {
+        ch as char
+    } else {
+        '.'
+    }
 }
 
 /// Display hex dump of raw bytes.
@@ -215,8 +263,7 @@ fn display_hex_dump(ui: &mut egui::Ui, bytes: &[u8]) {
         for i in 0..bytes_per_line {
             if let Some(b) = chunk.get(i) {
                 let _ = write!(hex_line, "{b:02x} ");
-            }
-            else {
+            } else {
                 hex_line.push_str("   ");
             }
 
