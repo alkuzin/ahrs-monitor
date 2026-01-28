@@ -64,17 +64,22 @@ impl Ingester {
 
                     let frame = match IdtpFrame::try_from(raw_frame) {
                         Ok(frame) => {
-                            let header = frame.header();
-                            // Checking correctness of the sequence number.
-                            let sequence = header.sequence;
+                            if let Some(header) = frame.header() {
+                                // Checking correctness of the sequence number.
+                                let sequence = header.sequence;
 
-                            if sequence <= prev_sequence {
-                                bad_packets += 1;
-                                is_valid = false;
+                                if sequence <= prev_sequence {
+                                    bad_packets += 1;
+                                    is_valid = false;
+                                }
+
+                                prev_sequence = sequence;
+                                Some(frame)
                             }
-
-                            prev_sequence = sequence;
-                            Some(frame)
+                            else {
+                                bad_packets += 1;
+                                None
+                            }
                         },
                         Err(_) => {
                             bad_packets += 1;
