@@ -31,8 +31,8 @@ tokio = { version = "1.49", features = ["full"] }
 tsilna-nav = { git = "https://github.com/alkuzin/tsilna", features = ["math", "protocol", "idtp_sw_impl"] }
 # A trait object based error type for easy idiomatic error handling.
 anyhow = "1.0"
-# Utilities for random number generation.
-rand = "0.9"
+# Zerocopy makes zero-cost memory manipulation effortless.
+zerocopy = { version = "0.8", features = ["derive"] }
 
 # Executable files section.
 [[bin]]

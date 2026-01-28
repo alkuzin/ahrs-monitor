@@ -3,6 +3,8 @@
 
 //! Application state module.
 
+pub mod payload;
+
 use tsilna_nav::protocol::idtp::IdtpFrame;
 
 /// Context data after receiving the frame.
