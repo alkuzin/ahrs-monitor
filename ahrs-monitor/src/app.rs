@@ -6,7 +6,7 @@
 use crate::{
     config,
     model::{AppEvent, FrameContext},
-    ui::{Tab, inspector},
+    ui::{InspectorTab, TabViewer},
 };
 use eframe::Frame;
 use egui::{
@@ -19,8 +19,10 @@ use tokio::sync::mpsc::Receiver;
 pub struct App {
     /// MPSC receiver handle.
     rx: Receiver<AppEvent>,
-    /// Current selected tab.
-    current_tab: Tab,
+    /// List of application tabs.
+    tabs: Vec<Box<dyn TabViewer>>,
+    /// Current selected tab index.
+    current_tab_idx: usize,
     /// Current smoothed number of frames per second.
     fps: f64,
     /// Current number of frames from the start.
@@ -44,13 +46,14 @@ impl eframe::App for App {
     fn update(&mut self, ctx: &Context, _frame: &mut Frame) {
         TopBottomPanel::top("top_panel")
             .show(ctx, |ui| self.display_top_panel(ui));
+
         CentralPanel::default().show(ctx, |ui| self.display_central_panel(ui));
+
         TopBottomPanel::bottom("bottom_panel")
             .show(ctx, |ui| self.display_bottom_panel(ui, ctx));
 
         self.handle_events();
         self.frame_counter += 1;
-        // ctx.request_repaint();
     }
 }
 
@@ -66,13 +69,14 @@ impl App {
     pub fn new(rx: Receiver<AppEvent>) -> Self {
         Self {
             rx,
-            current_tab: Tab::default(),
             fps: 0.0,
             frame_counter: 0,
             connection_status: false,
             history: VecDeque::with_capacity(config::HISTORY_MAX_SIZE),
             is_paused: false,
             current_frame: None,
+            tabs: vec![Box::new(InspectorTab)],
+            current_tab_idx: 0,
         }
     }
 
@@ -109,22 +113,14 @@ impl App {
     /// - `ui` - given screen UI handler.
     fn display_top_panel(&mut self, ui: &mut egui::Ui) {
         ui.horizontal(|ui| {
-            // TODO: get titles from tabs trait method`.
-            ui.selectable_value(
-                &mut self.current_tab,
-                Tab::Dashboard,
-                "🗖 Dashboard",
-            );
-            ui.selectable_value(
-                &mut self.current_tab,
-                Tab::Telemetry,
-                "📈 Telemetry",
-            );
-            ui.selectable_value(
-                &mut self.current_tab,
-                Tab::Inspector,
-                "🔍 Packet Inspector",
-            );
+            for (index, tab) in self.tabs.iter().enumerate() {
+                let tab_label = format!("{} {}", tab.icon(), tab.title());
+                let checked = self.current_tab_idx == index;
+
+                if ui.selectable_label(checked, tab_label).clicked() {
+                    self.current_tab_idx = index;
+                }
+            }
         });
         ui.separator();
         ui.horizontal(|ui| {
@@ -140,13 +136,8 @@ impl App {
     ///
     /// # Parameters
     /// - `ui` - given screen UI handler.
-    fn display_central_panel(&self, ui: &mut egui::Ui) {
-        match self.current_tab {
-            // TODO: add trait for Tabs.
-            Tab::Inspector => inspector::display_tab(ui, &self.current_frame),
-            Tab::Dashboard => Self::view_dashboard_tab(ui),
-            Tab::Telemetry => Self::view_telemetry_tab(ui),
-        }
+    fn display_central_panel(&mut self, ui: &mut egui::Ui) {
+        self.render_active_tab(ui);
     }
 
     /// Display bottom panel.
@@ -196,6 +187,18 @@ impl App {
         });
     }
 
+    /// Render active tab.
+    ///
+    /// # Parameters
+    /// - `ui` - given screen UI handler.
+    fn render_active_tab(&mut self, ui: &mut egui::Ui) {
+        if let Some(tab) = self.tabs.get_mut(self.current_tab_idx)
+            && let Some(frame_ctx) = &self.current_frame
+        {
+            tab.ui(ui, frame_ctx);
+        }
+    }
+
     /// Handle events from ingester.
     fn handle_events(&mut self) {
         while let Ok(event) = self.rx.try_recv() {
@@ -216,21 +219,5 @@ impl App {
                 }
             }
         }
-    }
-
-    /// Display dashboard tab.
-    ///
-    /// # Parameters
-    /// - `ui` - given screen UI handler.
-    fn view_dashboard_tab(ui: &mut egui::Ui) {
-        ui.label("Dashboard");
-    }
-
-    /// Display telemetry tab.
-    ///
-    /// # Parameters
-    /// - `ui` - given screen UI handler.
-    fn view_telemetry_tab(ui: &mut egui::Ui) {
-        ui.label("Telemetry");
     }
 }

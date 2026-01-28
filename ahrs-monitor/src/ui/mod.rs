@@ -4,8 +4,9 @@
 //! The core responsible for AHRS Monitor user interface.
 
 use crate::model::FrameContext;
+pub use inspector::InspectorTab;
 
-pub mod inspector;
+mod inspector;
 
 /// Application tabs enumeration.
 #[derive(Debug, Default, PartialEq, Eq)]
