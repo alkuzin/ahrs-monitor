@@ -3,13 +3,11 @@
 
 //! Packet inspector tab user interface implementation.
 
-use crate::{model::{FrameContext, payload::Payload}, config};
+use crate::model::{FrameContext, payload::Payload};
 use tsilna_nav::protocol::idtp::{IdtpFrame, Mode};
 use zerocopy::FromBytes;
 use eframe::epaint::Color32;
 use egui::{Layout, RichText};
-
-// TODO: fix FPS = 0 issue.
 
 /// Display packet inspector tab.
 ///
@@ -17,23 +15,30 @@ use egui::{Layout, RichText};
 /// - `ui` - given screen UI handler.
 /// - `current_frame` - given current frame context to handle.
 pub fn display_tab(ui: &mut egui::Ui, current_frame: &Option<FrameContext>) {
-    ui.vertical(|ui| {
-        egui::Grid::new("packet_inspector_grid")
-            .num_columns(2)
-            .min_row_height(config::APP_WINDOW_HEIGHT)
-            .spacing([8.0, 4.0])
-            .show(ui, |ui| {
-                if let Some(frame_ctx) = current_frame {
-                    if let Some(frame) = frame_ctx.frame {
-                        if let Some(col_height) = display_hex_dump_column(ui, frame_ctx, &frame) {
-                            display_payload_column(ui, &frame, col_height);
-                        }
-                    }
-                }
-            });
+    if let Some(frame_ctx) = current_frame {
+        if let Some(frame) = &frame_ctx.frame {
+            ui.horizontal_top(|ui| {
+                let mut col_height: Option<f32> = None;
 
-        ui.end_row();
-    });
+                let desired_size = egui::vec2(512.0, ui.available_height());
+                ui.allocate_ui(desired_size, |ui| {
+                    col_height = display_hex_dump_column(ui, frame_ctx, frame);
+                });
+
+                ui.add_space(8.0);
+
+                let desired_size = egui::vec2(
+                    ui.available_width(),
+                    ui.available_height()
+                );
+                ui.allocate_ui(desired_size, |ui| {
+                    if let Some(height) = col_height {
+                        display_payload_column(ui, frame, height);
+                    }
+                });
+            });
+        }
+    }
 }
 
 /// Display hex dump column user interface.
@@ -78,7 +83,7 @@ fn display_hex_dump_column(ui: &mut egui::Ui, frame_ctx: &FrameContext, frame: &
         let col1_rect = ui.with_layout(Layout::top_down(egui::Align::LEFT), |ui| {
             // Displaying hex dump of the frame bytes.
             ui.group(|ui| {
-                ui.set_min_width(512.0);
+                // ui.set_min_width(512.0);
                 display_hex_dump(ui, &frame_ctx.raw_frame);
             });
 
@@ -118,8 +123,10 @@ fn display_payload_column(ui: &mut egui::Ui, frame: &IdtpFrame, col_height: f32)
 
             ui.with_layout(Layout::top_down(egui::Align::LEFT), |ui| {
                 ui.group(|ui| {
+                    let height = col_height.max(100.0);
+
                     ui.set_width(ui.available_width());
-                    ui.set_max_height(col_height - 14.0);
+                    ui.set_max_height(height - 14.0);
 
                     egui::ScrollArea::vertical()
                         .id_salt("payload_metrics_scroll")
