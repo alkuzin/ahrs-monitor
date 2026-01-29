@@ -15,7 +15,7 @@ pub struct TelemetryTab {
     /// IMU readings history.
     history: [VecDeque<f64>; 9],
     /// Max number of entries in history.
-    max_points: usize,
+    max_points: u32,
 }
 
 impl TelemetryTab {
@@ -26,8 +26,9 @@ impl TelemetryTab {
     ///
     /// # Returns
     /// - New `TelemetryTab` object.
-    pub fn new(max_points: usize) -> TelemetryTab {
-        let history = std::array::from_fn(|_| VecDeque::with_capacity(max_points));
+    #[must_use]
+    pub fn new(max_points: u32) -> Self {
+        let history = std::array::from_fn(|_| VecDeque::with_capacity(max_points as usize));
 
         Self {
             history,
@@ -40,32 +41,33 @@ impl TelemetryTab {
     /// # Parameters
     /// - `frame_ctx` - given current frame context to handle.
     pub fn add_data(&mut self, frame_ctx: &FrameContext) {
-        if let Some(frame) = frame_ctx.frame {
-            if let Ok(payload_bytes) = frame.payload()
+        if let Some(frame) = frame_ctx.frame
+            && let Ok(payload_bytes) = frame.payload()
                 && let Ok(payload) = Payload::read_from_prefix(payload_bytes)
-                {
-                    let payload = payload.0;
+        {
+            let payload = payload.0;
 
-                    let data: [f32; 9] = [
-                        payload.acc_x,
-                        payload.acc_y,
-                        payload.mag_z,
-                        payload.gyr_x,
-                        payload.gyr_y,
-                        payload.gyr_z,
-                        payload.mag_x,
-                        payload.mag_y,
-                        payload.mag_z,
-                    ];
+            let data: [f32; 9] = [
+                payload.acc_x,
+                payload.acc_y,
+                payload.mag_z,
+                payload.gyr_x,
+                payload.gyr_y,
+                payload.gyr_z,
+                payload.mag_x,
+                payload.mag_y,
+                payload.mag_z,
+            ];
 
-                    for (i, &val) in data.iter().enumerate() {
-                        if self.history[i].len() >= self.max_points {
-                            self.history[i].pop_front();
-                        }
-
-                        self.history[i].push_back(val as f64);
+            for (i, &val) in data.iter().enumerate() {
+                if let Some(sequence) = self.history.get_mut(i) {
+                    if sequence.len() >= self.max_points as usize {
+                        sequence.pop_front();
                     }
+
+                    sequence.push_back(f64::from(val));
                 }
+            }
         }
     }
 }
@@ -95,7 +97,7 @@ impl TabViewer for TelemetryTab {
     fn ui(&mut self, ui: &mut egui::Ui, _frame_ctx: &FrameContext) {
         ui.vertical(|ui| {
             let plot_height = 200.0;
-            let x_range = self.max_points as f64;
+            let x_range = f64::from(self.max_points);
 
             let render_plot = |ui: &mut egui::Ui, id: &str, title: &str, start_idx: usize, labels: [&str; 3]| {
                 ui.label(RichText::new(title).strong());
@@ -111,16 +113,23 @@ impl TabViewer for TelemetryTab {
 
                         for i in 0..3 {
                             let history_idx = start_idx + i;
+                            if let Some(sequence) = self.history.get(history_idx) {
 
-                            let points: PlotPoints = self.history[history_idx]
-                                .iter()
-                                .enumerate()
-                                .map(|(idx, &val)| [idx as f64, val])
-                                .collect();
+                                #[allow(clippy::cast_precision_loss)]
+                                {
+                                    let points: PlotPoints = sequence
+                                        .iter()
+                                        .enumerate()
+                                        .map(|(idx, &val)| [idx as f64, val])
+                                        .collect();
 
-                            plot_ui.line(Line::new(labels[i], points)
-                                .color(colors[i])
-                                .width(1.5));
+                                    if let Some(label) = labels.get(i) && let Some(color) = colors.get(i) {
+                                        plot_ui.line(Line::new(*label, points)
+                                            .color(*color)
+                                            .width(0.8));
+                                    }
+                                }
+                            }
                         }
                     });
 

@@ -75,7 +75,7 @@ impl App {
             is_paused: false,
             current_frame: None,
             tabs: vec![
-                AppTab::Telemetry(TelemetryTab::new(1000)),
+                AppTab::Telemetry(Box::new(TelemetryTab::new(1000))),
                 AppTab::Inspector(InspectorTab),
             ],
             current_tab_idx: 0,
@@ -122,7 +122,7 @@ impl App {
                     AppTab::Inspector(tab) => (tab.icon(), tab.title()),
                 };
 
-                let tab_label = format!("{} {}", icon, title);
+                let tab_label = format!("{icon} {title}");
                 let checked = self.current_tab_idx == index;
 
                 if ui.selectable_label(checked, tab_label).clicked() {
@@ -225,8 +225,8 @@ impl App {
     ///
     /// # Parameters
     /// - `status` - given new connection status between AHRS monitor and IMU.
-    #[inline(always)]
-    fn handle_update_connection_status(&mut self, status: bool) {
+    #[inline]
+    const fn handle_update_connection_status(&mut self, status: bool) {
         self.connection_status = status;
     }
 
@@ -234,7 +234,7 @@ impl App {
     ///
     /// # Parameters
     /// - `frame_ctx` - given new frame context info.
-    #[inline(always)]
+    #[inline]
     fn handle_received_frame(&mut self, frame_ctx: Box<FrameContext>) {
         self.history.push_back(*frame_ctx.clone());
 
@@ -247,7 +247,7 @@ impl App {
                 .iter_mut()
                 .find(|tab| matches!(tab, AppTab::Telemetry(_)))
             {
-                tab.add_data(&*frame_ctx);
+                tab.add_data(&frame_ctx);
             }
 
             self.current_frame = Some(*frame_ctx);

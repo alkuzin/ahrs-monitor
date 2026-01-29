@@ -17,7 +17,7 @@ pub enum AppTab {
     #[default]
     Dashboard,
     /// Sensor readings plots.
-    Telemetry(TelemetryTab),
+    Telemetry(Box<TelemetryTab>),
     /// Tab for displaying raw packet inspector.
     Inspector(InspectorTab),
 }
