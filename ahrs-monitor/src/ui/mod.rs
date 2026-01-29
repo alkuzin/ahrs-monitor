@@ -5,19 +5,21 @@
 
 use crate::model::FrameContext;
 pub use inspector::InspectorTab;
+pub use telemetry::TelemetryTab;
 
 mod inspector;
+mod telemetry;
 
 /// Application tabs enumeration.
-#[derive(Debug, Default, PartialEq, Eq)]
-pub enum Tab {
+#[derive(Default)]
+pub enum AppTab {
     /// Tab for displaying 3D model.
     #[default]
     Dashboard,
     /// Sensor readings plots.
-    Telemetry,
+    Telemetry(TelemetryTab),
     /// Tab for displaying raw packet inspector.
-    Inspector,
+    Inspector(InspectorTab),
 }
 
 /// Application tab trait.

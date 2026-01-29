@@ -6,7 +6,7 @@
 use crate::{
     config,
     model::{AppEvent, FrameContext},
-    ui::{InspectorTab, TabViewer},
+    ui::{InspectorTab, TelemetryTab, TabViewer, AppTab},
 };
 use eframe::Frame;
 use egui::{
@@ -20,7 +20,7 @@ pub struct App {
     /// MPSC receiver handle.
     rx: Receiver<AppEvent>,
     /// List of application tabs.
-    tabs: Vec<Box<dyn TabViewer>>,
+    tabs: Vec<AppTab>,
     /// Current selected tab index.
     current_tab_idx: usize,
     /// Current smoothed number of frames per second.
@@ -42,8 +42,7 @@ impl eframe::App for App {
     ///
     /// # Parameters
     /// - `ctx` - given egui context to handle.
-    /// - `frame` - given surroundings of the app.
-    fn update(&mut self, ctx: &Context, _frame: &mut Frame) {
+    fn update(&mut self, ctx: &Context, _: &mut Frame) {
         TopBottomPanel::top("top_panel")
             .show(ctx, |ui| self.display_top_panel(ui));
 
@@ -75,7 +74,10 @@ impl App {
             history: VecDeque::with_capacity(config::HISTORY_MAX_SIZE),
             is_paused: false,
             current_frame: None,
-            tabs: vec![Box::new(InspectorTab)],
+            tabs: vec![
+                AppTab::Telemetry(TelemetryTab::new(1000)),
+                AppTab::Inspector(InspectorTab),
+            ],
             current_tab_idx: 0,
         }
     }
@@ -114,7 +116,13 @@ impl App {
     fn display_top_panel(&mut self, ui: &mut egui::Ui) {
         ui.horizontal(|ui| {
             for (index, tab) in self.tabs.iter().enumerate() {
-                let tab_label = format!("{} {}", tab.icon(), tab.title());
+                let (icon, title) = match tab {
+                    AppTab::Dashboard => {("", "")},
+                    AppTab::Telemetry(tab) => (tab.icon(), tab.title()),
+                    AppTab::Inspector(tab) => (tab.icon(), tab.title()),
+                };
+
+                let tab_label = format!("{} {}", icon, title);
                 let checked = self.current_tab_idx == index;
 
                 if ui.selectable_label(checked, tab_label).clicked() {
@@ -195,7 +203,11 @@ impl App {
         if let Some(tab) = self.tabs.get_mut(self.current_tab_idx)
             && let Some(frame_ctx) = &self.current_frame
         {
-            tab.ui(ui, frame_ctx);
+            match tab {
+                AppTab::Dashboard => {}
+                AppTab::Telemetry(tab) => tab.ui(ui, frame_ctx),
+                AppTab::Inspector(tab) => tab.ui(ui, frame_ctx),
+            }
         }
     }
 
@@ -203,21 +215,42 @@ impl App {
     fn handle_events(&mut self) {
         while let Ok(event) = self.rx.try_recv() {
             match event {
-                AppEvent::UpdateConnectionStatus(status) => {
-                    self.connection_status = status;
-                }
-                AppEvent::FrameReceived(frame_ctx) => {
-                    self.history.push_back(*frame_ctx.clone());
-
-                    if self.history.len() > config::HISTORY_MAX_SIZE {
-                        self.history.pop_front();
-                    }
-
-                    if !self.is_paused {
-                        self.current_frame = Some(*frame_ctx);
-                    }
-                }
+                AppEvent::UpdateConnectionStatus(status) => self.handle_update_connection_status(status),
+                AppEvent::FrameReceived(frame_ctx) => self.handle_received_frame(frame_ctx),
             }
+        }
+    }
+
+    /// Handle updating connection status event.
+    ///
+    /// # Parameters
+    /// - `status` - given new connection status between AHRS monitor and IMU.
+    #[inline(always)]
+    fn handle_update_connection_status(&mut self, status: bool) {
+        self.connection_status = status;
+    }
+
+    /// Handle received frame event.
+    ///
+    /// # Parameters
+    /// - `frame_ctx` - given new frame context info.
+    #[inline(always)]
+    fn handle_received_frame(&mut self, frame_ctx: Box<FrameContext>) {
+        self.history.push_back(*frame_ctx.clone());
+
+        if self.history.len() > config::HISTORY_MAX_SIZE {
+            self.history.pop_front();
+        }
+
+        if !self.is_paused {
+            if let Some(AppTab::Telemetry(tab)) = self.tabs
+                .iter_mut()
+                .find(|tab| matches!(tab, AppTab::Telemetry(_)))
+            {
+                tab.add_data(&*frame_ctx);
+            }
+
+            self.current_frame = Some(*frame_ctx);
         }
     }
 }
