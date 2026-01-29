@@ -6,7 +6,7 @@
 use crate::{
     config,
     model::{AppEvent, FrameContext},
-    ui::{InspectorTab, TelemetryTab, TabViewer, AppTab},
+    ui::{AppTab, InspectorTab, TabViewer, TelemetryTab},
 };
 use eframe::Frame;
 use egui::{
@@ -117,7 +117,7 @@ impl App {
         ui.horizontal(|ui| {
             for (index, tab) in self.tabs.iter().enumerate() {
                 let (icon, title) = match tab {
-                    AppTab::Dashboard => {("", "")},
+                    AppTab::Dashboard => ("", ""),
                     AppTab::Telemetry(tab) => (tab.icon(), tab.title()),
                     AppTab::Inspector(tab) => (tab.icon(), tab.title()),
                 };
@@ -215,8 +215,12 @@ impl App {
     fn handle_events(&mut self) {
         while let Ok(event) = self.rx.try_recv() {
             match event {
-                AppEvent::UpdateConnectionStatus(status) => self.handle_update_connection_status(status),
-                AppEvent::FrameReceived(frame_ctx) => self.handle_received_frame(frame_ctx),
+                AppEvent::UpdateConnectionStatus(status) => {
+                    self.handle_update_connection_status(status)
+                }
+                AppEvent::FrameReceived(frame_ctx) => {
+                    self.handle_received_frame(frame_ctx)
+                }
             }
         }
     }
@@ -243,7 +247,8 @@ impl App {
         }
 
         if !self.is_paused {
-            if let Some(AppTab::Telemetry(tab)) = self.tabs
+            if let Some(AppTab::Telemetry(tab)) = self
+                .tabs
                 .iter_mut()
                 .find(|tab| matches!(tab, AppTab::Telemetry(_)))
             {
