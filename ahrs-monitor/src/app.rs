@@ -216,20 +216,18 @@ impl App {
             }
         }
         else {
-            ui.centered_and_justified(|ui| {
-                ui.ctx().request_repaint();
+            ui.vertical_centered(|ui| {
+                ui.add_space(ui.available_height() / 2.0 - 50.0);
+                ui.add(egui::Spinner::new().size(40.0));
+                ui.add_space(10.0);
 
-                // Calculating the opacity based on time: range 0.3 to 1.0.
-                let time = ui.input(|i| i.time) as f32;
-                let alpha = ((time * 3.0).sin() + 1.0) / 2.0 * 0.7 + 0.3;
-                let color = Color32::GRAY.linear_multiply(alpha);
+                let label_text = if self.connection_status {
+                    "WAITING FOR IMU DATA..."
+                } else {
+                    "WAITING FOR CONNECTION..."
+                };
 
-                ui.label(
-                    RichText::new("WAITING FOR IMU DATA...")
-                        .strong()
-                        .color(color)
-                        .size(18.0)
-                );
+                ui.label(RichText::new(label_text).size(18.0));
             });
         }
     }
