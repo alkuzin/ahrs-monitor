@@ -3,6 +3,7 @@
 
 //! Application handler related declarations.
 
+use crate::ui::DashboardTab;
 use crate::{
     config,
     model::{AppEvent, FrameContext},
@@ -75,6 +76,7 @@ impl App {
             is_paused: false,
             current_frame: None,
             tabs: vec![
+                AppTab::Dashboard(DashboardTab),
                 AppTab::Telemetry(Box::new(TelemetryTab::new(1000))),
                 AppTab::Inspector(InspectorTab),
             ],
@@ -117,7 +119,7 @@ impl App {
         ui.horizontal(|ui| {
             for (index, tab) in self.tabs.iter().enumerate() {
                 let (icon, title) = match tab {
-                    AppTab::Dashboard => ("", ""),
+                    AppTab::Dashboard(tab) => (tab.icon(), tab.title()),
                     AppTab::Telemetry(tab) => (tab.icon(), tab.title()),
                     AppTab::Inspector(tab) => (tab.icon(), tab.title()),
                 };
@@ -204,7 +206,7 @@ impl App {
             && let Some(frame_ctx) = &self.current_frame
         {
             match tab {
-                AppTab::Dashboard => {}
+                AppTab::Dashboard(tab) => tab.ui(ui, frame_ctx),
                 AppTab::Telemetry(tab) => tab.ui(ui, frame_ctx),
                 AppTab::Inspector(tab) => tab.ui(ui, frame_ctx),
             }

@@ -4,18 +4,19 @@
 //! The core responsible for AHRS Monitor user interface.
 
 use crate::model::FrameContext;
+pub use dashboard::DashboardTab;
 pub use inspector::InspectorTab;
 pub use telemetry::TelemetryTab;
 
+mod dashboard;
 mod inspector;
 mod telemetry;
+pub mod utils;
 
 /// Application tabs enumeration.
-#[derive(Default)]
 pub enum AppTab {
     /// Tab for displaying 3D model.
-    #[default]
-    Dashboard,
+    Dashboard(DashboardTab),
     /// Sensor readings plots.
     Telemetry(Box<TelemetryTab>),
     /// Tab for displaying raw packet inspector.
