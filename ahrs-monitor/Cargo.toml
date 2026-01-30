@@ -35,6 +35,8 @@ tsilna-nav = { git = "https://github.com/alkuzin/tsilna", features = ["math", "p
 anyhow = "1.0"
 # Zerocopy makes zero-cost memory manipulation effortless.
 zerocopy = { version = "0.8", features = ["derive"] }
+# Linear algebra library.
+nalgebra = "0.34"
 
 # Executable files section.
 [[bin]]
