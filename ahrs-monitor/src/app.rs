@@ -77,7 +77,7 @@ impl App {
             current_frame: None,
             tabs: vec![
                 AppTab::Dashboard(DashboardTab),
-                AppTab::Telemetry(Box::new(TelemetryTab::new(1000))),
+                AppTab::Telemetry(Box::new(TelemetryTab::default())),
                 AppTab::Inspector(InspectorTab),
             ],
             current_tab_idx: 0,
