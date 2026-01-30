@@ -3,6 +3,7 @@
 
 //! Packet inspector tab user interface implementation.
 
+use crate::ui::utils::display_metric;
 use crate::{
     model::{FrameContext, payload::Payload},
     ui::TabViewer,
@@ -220,35 +221,6 @@ fn display_payload_column(
             });
         });
     }
-}
-
-/// Display custom metric.
-///
-/// # Parameters
-/// - `ui` - given screen UI handler.
-/// - `name` - given metric name.
-/// - `value` - given metric value.
-/// - `unit` - given metric measurement unit.
-/// - `color` - given metric value text color.
-fn display_metric(
-    ui: &mut egui::Ui,
-    name: &str,
-    value: &impl ToString,
-    unit: Option<&str>,
-    color: Option<Color32>,
-) {
-    ui.horizontal(|ui| {
-        let color = color.unwrap_or(Color32::WHITE);
-
-        ui.label(name);
-        ui.label(RichText::new(value.to_string()).color(color));
-
-        if let Some(unit) = unit {
-            ui.label(unit);
-        }
-    });
-
-    ui.separator();
 }
 
 /// Convert byte to ASCII.
