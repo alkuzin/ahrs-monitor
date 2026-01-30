@@ -61,23 +61,12 @@ impl TabViewer for DashboardTab {
     fn ui(&mut self, ui: &mut egui::Ui, frame_ctx: &FrameContext) {
         if let Some(quaternion) = frame_ctx.quaternion {
             ui.vertical(|ui| {
-                ui.label(egui::RichText::new("Euler Angles History").strong());
                 let plot_height = ui.available_height() * 0.45;
                 self.plotter.set_plot_height(Some(plot_height));
 
                 ui.scope(|ui| {
                     ui.set_height(plot_height);
                     self.display_attitude_plot(ui);
-
-                    ui.painter().rect_filled(
-                        ui.available_rect_before_wrap(),
-                        4.0,
-                        Color32::from_black_alpha(20),
-                    );
-
-                    ui.centered_and_justified(|ui| {
-                        ui.label("ATTITUDE PLOT AREA")
-                    });
                 });
             });
 
