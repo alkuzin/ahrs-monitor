@@ -148,6 +148,10 @@ impl App {
     /// - `ui` - given screen UI handler.
     fn display_central_panel(&mut self, ui: &mut egui::Ui) {
         self.render_active_tab(ui);
+
+        if !self.is_paused {
+            ui.ctx().request_repaint();
+        }
     }
 
     /// Display bottom panel.
@@ -210,6 +214,23 @@ impl App {
                 AppTab::Telemetry(tab) => tab.ui(ui, frame_ctx),
                 AppTab::Inspector(tab) => tab.ui(ui, frame_ctx),
             }
+        }
+        else {
+            ui.centered_and_justified(|ui| {
+                ui.ctx().request_repaint();
+
+                // Calculating the opacity based on time: range 0.3 to 1.0.
+                let time = ui.input(|i| i.time) as f32;
+                let alpha = ((time * 3.0).sin() + 1.0) / 2.0 * 0.7 + 0.3;
+                let color = Color32::GRAY.linear_multiply(alpha);
+
+                ui.label(
+                    RichText::new("WAITING FOR IMU DATA...")
+                        .strong()
+                        .color(color)
+                        .size(18.0)
+                );
+            });
         }
     }
 
