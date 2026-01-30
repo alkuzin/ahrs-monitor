@@ -218,10 +218,10 @@ impl App {
         while let Ok(event) = self.rx.try_recv() {
             match event {
                 AppEvent::UpdateConnectionStatus(status) => {
-                    self.handle_update_connection_status(status)
+                    self.handle_update_connection_status(status);
                 }
                 AppEvent::FrameReceived(frame_ctx) => {
-                    self.handle_received_frame(frame_ctx)
+                    self.handle_received_frame(frame_ctx);
                 }
             }
         }

@@ -13,7 +13,7 @@ use std::ops::Range;
 use tokio::{net::UdpSocket, sync::mpsc::Sender, time};
 use tsilna_nav::{
     math::rng::Xorshift,
-    protocol::idtp::{IDTP_FRAME_MAX_SIZE, IdtpFrame, IdtpHeader}
+    protocol::idtp::{IDTP_FRAME_MAX_SIZE, IdtpFrame},
 };
 
 /// Mediator between AHRS monitor and IMU.
@@ -93,7 +93,7 @@ impl Ingester {
                             }
 
                             q = Some(
-                                estimate_attitude(total_packets as u32, &frame)
+                                estimate_attitude(u32::try_from(total_packets)?, &frame)
                             );
                             prev_sequence = sequence;
                             Some(frame)

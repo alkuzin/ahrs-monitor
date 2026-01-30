@@ -49,13 +49,15 @@ impl TabViewer for DashboardTab {
     fn ui(&mut self, ui: &mut egui::Ui, frame_ctx: &FrameContext) {
         if let Some(quaternion) = frame_ctx.quaternion {
             ui.columns(2, |cols| {
-                // Column 1: Large 3D model.
-                cols[0].vertical(|ui| {
-                    self.display_large_3d_model(ui, &quaternion)
-                });
+                if let Some(col) = cols.get_mut(0) {
+                    col.vertical(|ui| {
+                        Self::display_large_3d_model(ui, &quaternion);
+                    });
+                }
 
-                // Column 2: Graphs & metrics.
-                cols[1].vertical(|ui| self.display_attitude(ui, &quaternion));
+                if let Some(col) = cols.get_mut(0) {
+                    col.vertical(|ui| Self::display_attitude(ui, &quaternion));
+                }
             });
         }
     }
@@ -68,7 +70,6 @@ impl DashboardTab {
     /// - `ui` - given screen UI handler.
     /// - `frame_ctx` - given current frame context to handle.
     fn display_large_3d_model(
-        &mut self,
         ui: &mut egui::Ui,
         _quaternion: &UnitQuaternion<f32>,
     ) {
@@ -97,11 +98,7 @@ impl DashboardTab {
     /// # Parameters
     /// - `ui` - given screen UI handler.
     /// - `quaternion` - given quaternion to handle.
-    fn display_attitude(
-        &mut self,
-        ui: &mut egui::Ui,
-        quaternion: &UnitQuaternion<f32>,
-    ) {
+    fn display_attitude(ui: &mut egui::Ui, quaternion: &UnitQuaternion<f32>) {
         // Displaying attitude widget.
         ui.group(|ui| {
             ui.set_height(ui.available_height() * 0.5);
@@ -109,7 +106,7 @@ impl DashboardTab {
             ui.label(egui::RichText::new("Attitude"));
             ui.separator();
 
-            display_attitude_widget(ui, &quaternion);
+            display_attitude_widget(ui, quaternion);
         });
 
         ui.add_space(8.0);
@@ -124,7 +121,7 @@ impl DashboardTab {
 
             ui.group(|ui| {
                 ui.vertical(|ui| {
-                    let attitude = Attitude::from_quaternion(&quaternion);
+                    let attitude = Attitude::from_quaternion(quaternion);
 
                     display_metric(
                         ui,
@@ -192,6 +189,37 @@ impl DashboardTab {
     }
 }
 
+/// Cube vertices size.
+const VERTICES_SIZE: f32 = 1.0;
+
+/// Set of cube vertices.
+const CUBE_VERTICES: [Vector3<f32>; 8] = [
+    Vector3::new(-VERTICES_SIZE, -VERTICES_SIZE, -VERTICES_SIZE),
+    Vector3::new(VERTICES_SIZE, -VERTICES_SIZE, -VERTICES_SIZE),
+    Vector3::new(VERTICES_SIZE, VERTICES_SIZE, -VERTICES_SIZE),
+    Vector3::new(-VERTICES_SIZE, VERTICES_SIZE, -VERTICES_SIZE),
+    Vector3::new(-VERTICES_SIZE, -VERTICES_SIZE, VERTICES_SIZE),
+    Vector3::new(VERTICES_SIZE, -VERTICES_SIZE, VERTICES_SIZE),
+    Vector3::new(VERTICES_SIZE, VERTICES_SIZE, VERTICES_SIZE),
+    Vector3::new(-VERTICES_SIZE, VERTICES_SIZE, VERTICES_SIZE),
+];
+
+/// Set of cube edges.
+const CUBE_EDGES: [(usize, usize); 12] = [
+    (0, 1),
+    (1, 2),
+    (2, 3),
+    (3, 0),
+    (4, 5),
+    (5, 6),
+    (6, 7),
+    (7, 4),
+    (0, 4),
+    (1, 5),
+    (2, 6),
+    (3, 7),
+];
+
 /// Display attitude widget.
 ///
 /// # Parameters
@@ -211,41 +239,14 @@ fn display_attitude_widget(ui: &mut egui::Ui, rotation: &UnitQuaternion<f32>) {
     };
 
     // Rendering the cube.
-    const VERTICES_SIZE: f32 = 1.0;
-
-    const CUBE_VERTICES: [Vector3<f32>; 8] = [
-        Vector3::new(-VERTICES_SIZE, -VERTICES_SIZE, -VERTICES_SIZE),
-        Vector3::new(VERTICES_SIZE, -VERTICES_SIZE, -VERTICES_SIZE),
-        Vector3::new(VERTICES_SIZE, VERTICES_SIZE, -VERTICES_SIZE),
-        Vector3::new(-VERTICES_SIZE, VERTICES_SIZE, -VERTICES_SIZE),
-        Vector3::new(-VERTICES_SIZE, -VERTICES_SIZE, VERTICES_SIZE),
-        Vector3::new(VERTICES_SIZE, -VERTICES_SIZE, VERTICES_SIZE),
-        Vector3::new(VERTICES_SIZE, VERTICES_SIZE, VERTICES_SIZE),
-        Vector3::new(-VERTICES_SIZE, VERTICES_SIZE, VERTICES_SIZE),
-    ];
-
-    const CUBE_EDGES: [(usize, usize); 12] = [
-        (0, 1),
-        (1, 2),
-        (2, 3),
-        (3, 0),
-        (4, 5),
-        (5, 6),
-        (6, 7),
-        (7, 4),
-        (0, 4),
-        (1, 5),
-        (2, 6),
-        (3, 7),
-    ];
-
     let cube_stroke = Stroke::new(1.0, Color32::from_gray(100));
 
     for &(i, j) in &CUBE_EDGES {
-        painter.line_segment(
-            [project(CUBE_VERTICES[i]), project(CUBE_VERTICES[j])],
-            cube_stroke,
-        );
+        if let Some(v_i) = CUBE_VERTICES.get(i)
+            && let Some(v_j) = CUBE_VERTICES.get(j)
+        {
+            painter.line_segment([project(*v_i), project(*v_j)], cube_stroke);
+        }
     }
 
     // Rendering the axes.

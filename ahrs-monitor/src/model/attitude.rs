@@ -26,7 +26,7 @@ impl Attitude {
     /// # Returns
     /// - New `Attitude` object.
     #[must_use]
-    pub fn new(roll: f32, pitch: f32, yaw: f32) -> Self {
+    pub const fn new(roll: f32, pitch: f32, yaw: f32) -> Self {
         Self { roll, pitch, yaw }
     }
 
@@ -38,6 +38,7 @@ impl Attitude {
     /// # Returns
     /// - New `Attitude` object.
     #[inline]
+    #[must_use]
     pub fn from_quaternion(q: &UnitQuaternion<f32>) -> Self {
         let (roll, pitch, yaw) = q.euler_angles();
         Self { roll, pitch, yaw }
@@ -48,6 +49,7 @@ impl Attitude {
     /// # Returns
     /// - New unit quaternion from Euler angles.
     #[inline]
+    #[must_use]
     pub fn to_quaternion(&self) -> UnitQuaternion<f32> {
         UnitQuaternion::from_euler_angles(self.roll, self.pitch, self.yaw)
     }
