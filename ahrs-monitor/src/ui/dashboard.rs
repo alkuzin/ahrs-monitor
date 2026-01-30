@@ -48,14 +48,46 @@ impl TabViewer for DashboardTab {
     /// - `frame_ctx` - given current frame context to handle.
     fn ui(&mut self, ui: &mut egui::Ui, frame_ctx: &FrameContext) {
         if let Some(quaternion) = frame_ctx.quaternion {
+            ui.vertical(|ui| {
+                ui.label(egui::RichText::new("Euler Angles History").strong());
+
+                let plot_height = ui.available_height() * 0.45;
+
+                ui.scope(|ui| {
+                    ui.set_height(plot_height);
+                    Self::display_attitude_plot(ui, &quaternion);
+
+                    ui.painter().rect_filled(
+                        ui.available_rect_before_wrap(),
+                        4.0,
+                        Color32::from_black_alpha(20)
+                    );
+
+                    ui.centered_and_justified(|ui| ui.label("ATTITUDE PLOT AREA"));
+                });
+            });
+
+            ui.add_space(8.0);
+            ui.separator();
+            ui.add_space(8.0);
+
             ui.columns(2, |cols| {
                 if let Some(col) = cols.get_mut(0) {
                     col.vertical(|ui| {
-                        Self::display_large_3d_model(ui, &quaternion);
+                        // Displaying attitude widget.
+                        ui.group(|ui| {
+                            ui.set_height(ui.available_height() * 0.90);
+                            ui.set_width(ui.available_width());
+                            ui.label(egui::RichText::new("Attitude"));
+                            ui.separator();
+
+                            display_attitude_widget(ui, &quaternion);
+                        });
+
                     });
                 }
 
-                if let Some(col) = cols.get_mut(0) {
+                if let Some(col) = cols.get_mut(1) {
                     col.vertical(|ui| Self::display_attitude(ui, &quaternion));
                 }
             });
@@ -64,55 +96,26 @@ impl TabViewer for DashboardTab {
 }
 
 impl DashboardTab {
-    /// Display large 3D model.
+    /// Display plot of attitude changing over the time.
     ///
     /// # Parameters
     /// - `ui` - given screen UI handler.
-    /// - `frame_ctx` - given current frame context to handle.
-    fn display_large_3d_model(
+    /// - `quaternion` - given quaternion to handle.
+    fn display_attitude_plot(
         ui: &mut egui::Ui,
-        _quaternion: &UnitQuaternion<f32>,
+        quaternion: &UnitQuaternion<f32>,
     ) {
-        ui.label(egui::RichText::new("Orientation View").strong());
-
-        let (rect, _) =
-            ui.allocate_at_least(ui.available_size(), Sense::hover());
-
-        // Placeholder box for the 3D Model.
-        ui.painter()
-            .rect_filled(rect, 4.0, Color32::from_black_alpha(20));
-
-        ui.painter().text(
-            rect.center(),
-            Align2::CENTER_CENTER,
-            "3D MODEL RENDER",
-            FontId::proportional(20.0),
-            Color32::GRAY,
-        );
-
-        // TODO: render the 3D model.
+        // TODO:
     }
 
-    /// Display attitude info.
+    /// Display attitude metrics.
     ///
     /// # Parameters
     /// - `ui` - given screen UI handler.
     /// - `quaternion` - given quaternion to handle.
     fn display_attitude(ui: &mut egui::Ui, quaternion: &UnitQuaternion<f32>) {
-        // Displaying attitude widget.
         ui.group(|ui| {
-            ui.set_height(ui.available_height() * 0.5);
-            ui.set_width(ui.available_width());
-            ui.label(egui::RichText::new("Attitude"));
-            ui.separator();
-
-            display_attitude_widget(ui, quaternion);
-        });
-
-        ui.add_space(8.0);
-
-        // Displaying attitude metrics.
-        ui.group(|ui| {
+            ui.set_height(ui.available_height() * 0.90);
             ui.set_width(ui.available_width());
             ui.vertical_centered(|ui| {
                 ui.label(egui::RichText::new("EULER ANGLES").strong());
