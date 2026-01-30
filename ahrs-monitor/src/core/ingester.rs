@@ -8,8 +8,13 @@ use crate::{
     model::{AppEvent, FrameContext},
 };
 use anyhow::anyhow;
+use nalgebra::{Quaternion, UnitQuaternion};
+use std::ops::Range;
 use tokio::{net::UdpSocket, sync::mpsc::Sender, time};
-use tsilna_nav::protocol::idtp::{IDTP_FRAME_MAX_SIZE, IdtpFrame};
+use tsilna_nav::{
+    math::rng::Xorshift,
+    protocol::idtp::{IDTP_FRAME_MAX_SIZE, IdtpFrame, IdtpHeader}
+};
 
 /// Mediator between AHRS monitor and IMU.
 pub struct Ingester {
@@ -52,11 +57,11 @@ impl Ingester {
 
         log::info!("Listening for IDTP frames...");
 
-        let mut total_packets = 0;
-        let mut bad_packets = 0;
+        let mut total_packets: usize = 0;
+        let mut bad_packets: usize = 0;
         let mut prev_sequence: u32 = 0;
-        let mut packets_in_last_second = 0;
-        let mut current_pps = 0;
+        let mut packets_in_last_second: usize = 0;
+        let mut current_pps: usize = 0;
 
         let mut begin_interval =
             tokio::time::interval(time::Duration::from_secs(1));
@@ -75,6 +80,8 @@ impl Ingester {
                         true
                     };
 
+                    let mut q: Option<UnitQuaternion<f32>> = None;
+
                     let frame = if let Ok(frame) = IdtpFrame::try_from(raw_frame) {
                         if let Some(header) = frame.header() {
                             // Checking correctness of the sequence number.
@@ -85,6 +92,9 @@ impl Ingester {
                                 is_valid = false;
                             }
 
+                            q = Some(
+                                estimate_attitude(total_packets as u32, &frame)
+                            );
                             prev_sequence = sequence;
                             Some(frame)
                         }
@@ -108,6 +118,7 @@ impl Ingester {
                         pps: current_pps,
                         is_valid,
                         raw_frame: raw_frame.to_vec(),
+                        quaternion: q,
                     };
 
                     let _ = self.tx.send(AppEvent::FrameReceived(Box::new(frame_ctx))).await;
@@ -120,4 +131,28 @@ impl Ingester {
             }
         }
     }
+}
+
+// TODO: move to separate module.
+/// Estimate attitude based on IMU readings.
+///
+/// # Parameters
+/// - `seed` - given seed for pseudo-random numbers generator.
+/// - `frame` - given IDTP frame to handle.
+///
+/// # Returns
+/// - Attitude in quaternion representation.
+fn estimate_attitude(seed: u32, _frame: &IdtpFrame) -> UnitQuaternion<f32> {
+    // TODO: estimate attitude using IMU readings.
+    const Q_RANGE: Range<f32> = -1.0..1.0;
+
+    let mut rng = Xorshift::new(seed);
+    let q = Quaternion::new(
+        rng.next_f32(Q_RANGE),
+        rng.next_f32(Q_RANGE),
+        rng.next_f32(Q_RANGE),
+        rng.next_f32(Q_RANGE),
+    );
+
+    UnitQuaternion::from_quaternion(q)
 }
