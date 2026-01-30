@@ -63,6 +63,30 @@ impl<const ENTRIES: usize, const POINTS: usize> Plotter<ENTRIES, POINTS> {
         }
     }
 
+    /// Get most recent value for each metric entry.
+    ///
+    /// # Returns
+    /// - The most recent value for each metric entry - in case of success.
+    /// - `None` - otherwise.
+    #[must_use]
+    pub fn last_data(&self) -> Option<[f64; ENTRIES]> {
+        let mut last_values = [0.0; ENTRIES];
+
+        if self.history.is_empty() {
+            return None;
+        }
+
+        for (i, sequence) in self.history.iter().enumerate() {
+            if let Some(&val) = sequence.back()
+                && let Some(last) = last_values.get_mut(i)
+            {
+                *last = val;
+            }
+        }
+
+        Some(last_values)
+    }
+
     /// Set plot height.
     ///
     /// # Parameters
