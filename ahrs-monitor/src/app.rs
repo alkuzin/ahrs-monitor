@@ -7,7 +7,7 @@ use crate::ui::DashboardTab;
 use crate::{
     config,
     model::{AppEvent, FrameContext},
-    ui::{AppTab, InspectorTab, TabViewer, TelemetryTab},
+    ui::{AppTab, InspectorTab, TabViewer},
 };
 use eframe::Frame;
 use egui::{
@@ -76,8 +76,8 @@ impl App {
             is_paused: false,
             current_frame: None,
             tabs: vec![
-                AppTab::Dashboard(DashboardTab),
-                AppTab::Telemetry(Box::new(TelemetryTab::default())),
+                AppTab::Dashboard(DashboardTab::default()),
+                AppTab::Telemetry(Box::default()),
                 AppTab::Inspector(InspectorTab),
             ],
             current_tab_idx: 0,
@@ -253,6 +253,14 @@ impl App {
                 .tabs
                 .iter_mut()
                 .find(|tab| matches!(tab, AppTab::Telemetry(_)))
+            {
+                tab.add_data(&frame_ctx);
+            }
+
+            if let Some(AppTab::Dashboard(tab)) = self
+                .tabs
+                .iter_mut()
+                .find(|tab| matches!(tab, AppTab::Dashboard(_)))
             {
                 tab.add_data(&frame_ctx);
             }

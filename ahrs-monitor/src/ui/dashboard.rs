@@ -5,7 +5,10 @@
 
 use crate::{
     model::{FrameContext, attitude::Attitude},
-    ui::{TabViewer, utils::display_metric},
+    ui::{
+        TabViewer,
+        utils::{Plotter, display_metric},
+    },
 };
 use eframe::epaint::Stroke;
 use egui::{Align2, Color32, FontId, Pos2, Sense, vec2};
@@ -20,9 +23,18 @@ const PITCH_COLOR: Color32 = Color32::LIGHT_GREEN;
 /// Yaw angle color.
 const YAW_COLOR: Color32 = Color32::LIGHT_BLUE;
 
+/// Number of metrics in history.
+const HISTORY_ENTRIES: usize = 3;
+
+/// Max number of points in history per each metric.
+const MAX_POINTS: usize = 1000;
+
 /// Dashboard tab handler.
 #[derive(Debug, Default)]
-pub struct DashboardTab;
+pub struct DashboardTab {
+    /// Metrics plotter.
+    plotter: Plotter<HISTORY_ENTRIES, MAX_POINTS>,
+}
 
 impl TabViewer for DashboardTab {
     /// Get tab title.
@@ -50,20 +62,22 @@ impl TabViewer for DashboardTab {
         if let Some(quaternion) = frame_ctx.quaternion {
             ui.vertical(|ui| {
                 ui.label(egui::RichText::new("Euler Angles History").strong());
-
                 let plot_height = ui.available_height() * 0.45;
+                self.plotter.set_plot_height(Some(plot_height));
 
                 ui.scope(|ui| {
                     ui.set_height(plot_height);
-                    Self::display_attitude_plot(ui, &quaternion);
+                    self.display_attitude_plot(ui);
 
                     ui.painter().rect_filled(
                         ui.available_rect_before_wrap(),
                         4.0,
-                        Color32::from_black_alpha(20)
+                        Color32::from_black_alpha(20),
                     );
 
-                    ui.centered_and_justified(|ui| ui.label("ATTITUDE PLOT AREA"));
+                    ui.centered_and_justified(|ui| {
+                        ui.label("ATTITUDE PLOT AREA")
+                    });
                 });
             });
 
@@ -83,12 +97,13 @@ impl TabViewer for DashboardTab {
 
                             display_attitude_widget(ui, &quaternion);
                         });
-
                     });
                 }
 
                 if let Some(col) = cols.get_mut(1) {
-                    col.vertical(|ui| Self::display_attitude(ui, &quaternion));
+                    col.vertical(|ui| {
+                        self.display_attitude_metrics(ui, &quaternion);
+                    });
                 }
             });
         }
@@ -96,24 +111,46 @@ impl TabViewer for DashboardTab {
 }
 
 impl DashboardTab {
+    /// Append attitude metrics to the points history.
+    ///
+    /// # Parameters
+    /// - `frame_ctx` - given current frame context to handle.
+    pub fn add_data(&mut self, frame_ctx: &FrameContext) {
+        if let Some(quaternion) = frame_ctx.quaternion {
+            let attitude = Attitude::from_quaternion(&quaternion);
+
+            let data: [f32; HISTORY_ENTRIES] =
+                [attitude.roll, attitude.pitch, attitude.yaw];
+
+            self.plotter.add_data(data);
+        }
+    }
     /// Display plot of attitude changing over the time.
     ///
     /// # Parameters
     /// - `ui` - given screen UI handler.
-    /// - `quaternion` - given quaternion to handle.
-    fn display_attitude_plot(
-        ui: &mut egui::Ui,
-        quaternion: &UnitQuaternion<f32>,
-    ) {
-        // TODO:
+    /// - `attitude` - given attitude in Euler angles representation.
+    fn display_attitude_plot(&self, ui: &mut egui::Ui) {
+        self.plotter.render_plot(
+            ui,
+            "attitude_p",
+            "Attitude (Euler Angles)",
+            0,
+            ["Roll (X)", "Pitch (Y)", "Yaw (Z)"],
+        );
     }
 
     /// Display attitude metrics.
     ///
     /// # Parameters
     /// - `ui` - given screen UI handler.
+    /// - `attitude` - given attitude in Euler angles representation.
     /// - `quaternion` - given quaternion to handle.
-    fn display_attitude(ui: &mut egui::Ui, quaternion: &UnitQuaternion<f32>) {
+    fn display_attitude_metrics(
+        &self,
+        ui: &mut egui::Ui,
+        quaternion: &UnitQuaternion<f32>,
+    ) {
         ui.group(|ui| {
             ui.set_height(ui.available_height() * 0.90);
             ui.set_width(ui.available_width());
@@ -124,29 +161,31 @@ impl DashboardTab {
 
             ui.group(|ui| {
                 ui.vertical(|ui| {
-                    let attitude = Attitude::from_quaternion(quaternion);
+                    if let Some(data) = self.plotter.last_data() {
+                        let (roll, pitch, yaw) = (data[0], data[1], data[2]);
 
-                    display_metric(
-                        ui,
-                        "Roll:",
-                        &format!("{:.2}", attitude.roll),
-                        Some("rad"),
-                        Some(ROLL_COLOR),
-                    );
-                    display_metric(
-                        ui,
-                        "Pitch:",
-                        &format!("{:.2}", attitude.pitch),
-                        Some("rad"),
-                        Some(PITCH_COLOR),
-                    );
-                    display_metric(
-                        ui,
-                        "Yaw:",
-                        &format!("{:.2}", attitude.yaw),
-                        Some("rad"),
-                        Some(YAW_COLOR),
-                    );
+                        display_metric(
+                            ui,
+                            "Roll:",
+                            &format!("{roll:.2}"),
+                            Some("rad"),
+                            Some(ROLL_COLOR),
+                        );
+                        display_metric(
+                            ui,
+                            "Pitch:",
+                            &format!("{pitch:.2}"),
+                            Some("rad"),
+                            Some(PITCH_COLOR),
+                        );
+                        display_metric(
+                            ui,
+                            "Yaw:",
+                            &format!("{yaw:.2}"),
+                            Some("rad"),
+                            Some(YAW_COLOR),
+                        );
+                    }
                 });
             });
 
