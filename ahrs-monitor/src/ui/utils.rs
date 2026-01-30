@@ -4,7 +4,7 @@
 //! Utils for AHRS Monitor user interface.
 
 use eframe::epaint::Color32;
-use egui::RichText;
+use egui::{RichText, Vec2b};
 use egui_plot::{Corner, Legend, Line, Plot, PlotPoints};
 use std::collections::VecDeque;
 
@@ -106,7 +106,7 @@ impl<const ENTRIES: usize, const POINTS: usize> Plotter<ENTRIES, POINTS> {
     /// - `labels` - given labels for 3 metrics to plot.
     #[allow(clippy::cast_precision_loss)]
     pub fn render_plot(
-        &self,
+        &mut self,
         ui: &mut egui::Ui,
         id: &str,
         title: &str,
@@ -124,13 +124,15 @@ impl<const ENTRIES: usize, const POINTS: usize> Plotter<ENTRIES, POINTS> {
 
         ui.label(RichText::new(title).strong());
 
-        Plot::new(id)
+        let plot = Plot::new(id)
             .height(plot_height)
             .show_grid(true)
             .legend(Legend::default().position(Corner::RightTop))
             .include_x(0.0)
-            .include_x(x_range)
-            .show(ui, |plot_ui| {
+            .allow_double_click_reset(true)
+            .include_x(x_range);
+
+        plot.show(ui, |plot_ui| {
                 for i in 0..3 {
                     let history_idx = start_idx + i;
                     if let Some(sequence) = self.history.get(history_idx) {
@@ -166,9 +168,6 @@ impl<const ENTRIES: usize, const POINTS: usize> Default
     /// - New `Plotter` object.
     fn default() -> Self {
         let history = std::array::from_fn(|_| VecDeque::with_capacity(POINTS));
-        Self {
-            history,
-            plot_height: None,
-        }
+        Self { history, plot_height: None }
     }
 }

@@ -114,12 +114,13 @@ impl DashboardTab {
             self.plotter.add_data(data);
         }
     }
+
     /// Display plot of attitude changing over the time.
     ///
     /// # Parameters
     /// - `ui` - given screen UI handler.
     /// - `attitude` - given attitude in Euler angles representation.
-    fn display_attitude_plot(&self, ui: &mut egui::Ui) {
+    fn display_attitude_plot(&mut self, ui: &mut egui::Ui) {
         self.plotter.render_plot(
             ui,
             "attitude_p",
