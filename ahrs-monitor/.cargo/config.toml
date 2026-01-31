@@ -11,4 +11,4 @@ RUST_LOG="info"
 # Alias for running AHRS monitor.
 monitor = "run --bin ahrs-monitor"
 # Alias for running IMU simulator.
-sim = "run --bin imu-simulator"
+simulator = "run --bin imu-simulator"

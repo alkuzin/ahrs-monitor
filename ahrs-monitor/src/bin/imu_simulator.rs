@@ -3,14 +3,13 @@
 
 //! Simulator of sending IDTP frames over UDP.
 
-use ahrs_monitor::model::payload::Payload;
 use std::{ops::Range, time::Duration};
 use tokio::{net::UdpSocket, time::Instant};
+use tsilna_nav::protocol::idtp::payload::{Imu3Acc, Imu3Gyr, Imu3Mag, Imu9};
 use tsilna_nav::{
     math::rng::Xorshift,
     protocol::idtp::{IdtpFrame, IdtpHeader, Mode},
 };
-use zerocopy::IntoBytes;
 
 /// Pseudo-random accelerometer readings range.
 const RNG_ACC_RANGE: Range<f32> = -39.22..39.22; // +-4g.
@@ -28,19 +27,25 @@ const RNG_MAG_RANGE: Range<f32> = -8.0..8.0; // +-8 Gauss.
 ///
 /// # Returns
 /// - New generated payload.
-pub fn generate_payload(state: u32) -> Payload {
+pub fn generate_payload(state: u32) -> Imu9 {
     let mut rng = Xorshift::new(state);
 
-    Payload {
-        acc_x: rng.next_f32(RNG_ACC_RANGE),
-        acc_y: rng.next_f32(RNG_ACC_RANGE),
-        acc_z: rng.next_f32(RNG_ACC_RANGE),
-        gyr_x: rng.next_f32(RNG_GYR_RANGE),
-        gyr_y: rng.next_f32(RNG_GYR_RANGE),
-        gyr_z: rng.next_f32(RNG_GYR_RANGE),
-        mag_x: rng.next_f32(RNG_MAG_RANGE),
-        mag_y: rng.next_f32(RNG_MAG_RANGE),
-        mag_z: rng.next_f32(RNG_MAG_RANGE),
+    Imu9 {
+        acc: Imu3Acc {
+            acc_x: rng.next_f32(RNG_ACC_RANGE),
+            acc_y: rng.next_f32(RNG_ACC_RANGE),
+            acc_z: rng.next_f32(RNG_ACC_RANGE),
+        },
+        gyr: Imu3Gyr {
+            gyr_x: rng.next_f32(RNG_GYR_RANGE),
+            gyr_y: rng.next_f32(RNG_GYR_RANGE),
+            gyr_z: rng.next_f32(RNG_GYR_RANGE),
+        },
+        mag: Imu3Mag {
+            mag_x: rng.next_f32(RNG_MAG_RANGE),
+            mag_y: rng.next_f32(RNG_MAG_RANGE),
+            mag_z: rng.next_f32(RNG_MAG_RANGE),
+        },
     }
 }
 
@@ -68,9 +73,9 @@ async fn main() -> std::io::Result<()> {
         // Setting the IDTP frame.
         let mut frame = IdtpFrame::new();
         frame.set_header(&header);
-        let _ = frame.set_payload(payload.as_bytes());
+        let _ = frame.set_payload::<Imu9>(&payload);
 
-        let frame_size = frame.size().unwrap_or(0);
+        let frame_size = frame.size();
         let _ = frame.pack(&mut buffer[..frame_size], None);
         socket.send_to(&buffer, target_addr).await?;
 
