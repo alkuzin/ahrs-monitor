@@ -8,9 +8,9 @@ use crate::{
     model::{AppEvent, FrameContext},
 };
 use anyhow::anyhow;
-use nalgebra::{Quaternion, UnitQuaternion};
 use std::ops::Range;
 use tokio::{net::UdpSocket, sync::mpsc::Sender, time};
+use tsilna_nav::math::{Quat32, na};
 use tsilna_nav::{
     math::rng::Xorshift,
     protocol::idtp::{IDTP_FRAME_MAX_SIZE, IdtpFrame},
@@ -80,28 +80,27 @@ impl Ingester {
                         true
                     };
 
-                    let mut q: Option<UnitQuaternion<f32>> = None;
+                    let mut q: Option<Quat32> = None;
 
                     let frame = if let Ok(frame) = IdtpFrame::try_from(raw_frame) {
-                        if let Some(header) = frame.header() {
-                            // Checking correctness of the sequence number.
-                            let sequence = header.sequence;
+                        let header = frame.header();
+                        // Checking correctness of the sequence number.
+                        let sequence = header.sequence;
 
-                            if sequence <= prev_sequence {
-                                bad_packets += 1;
-                                is_valid = false;
-                            }
-
-                            q = Some(
-                                estimate_attitude(u32::try_from(total_packets)?, &frame)
-                            );
-                            prev_sequence = sequence;
-                            Some(frame)
-                        }
-                        else {
+                        if sequence <= prev_sequence {
                             bad_packets += 1;
-                            None
+                            is_valid = false;
                         }
+
+                        q = Some(
+                            estimate_attitude(
+                                u32::try_from(total_packets)?,
+                                &frame
+                            )
+                        );
+
+                        prev_sequence = sequence;
+                        Some(frame)
                     }
                     else {
                         bad_packets += 1;
@@ -121,7 +120,9 @@ impl Ingester {
                         quaternion: q,
                     };
 
-                    let _ = self.tx.send(AppEvent::FrameReceived(Box::new(frame_ctx))).await;
+                    let _ = self.tx.send(
+                        AppEvent::FrameReceived(Box::new(frame_ctx))
+                    ).await;
 
                 }
                 _ = begin_interval.tick() => {
@@ -142,17 +143,17 @@ impl Ingester {
 ///
 /// # Returns
 /// - Attitude in quaternion representation.
-fn estimate_attitude(seed: u32, _frame: &IdtpFrame) -> UnitQuaternion<f32> {
+fn estimate_attitude(seed: u32, _frame: &IdtpFrame) -> Quat32 {
     // TODO: estimate attitude using IMU readings.
     const Q_RANGE: Range<f32> = -1.0..1.0;
 
     let mut rng = Xorshift::new(seed);
-    let q = Quaternion::new(
+    let q = na::Quaternion::new(
         rng.next_f32(Q_RANGE),
         rng.next_f32(Q_RANGE),
         rng.next_f32(Q_RANGE),
         rng.next_f32(Q_RANGE),
     );
 
-    UnitQuaternion::from_quaternion(q)
+    Quat32::from_quaternion(q)
 }

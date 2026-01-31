@@ -3,11 +3,7 @@
 
 //! Application state module.
 
-pub mod attitude;
-pub mod payload;
-
-use nalgebra::UnitQuaternion;
-use tsilna_nav::protocol::idtp::IdtpFrame;
+use tsilna_nav::{math::Quat32, protocol::idtp::IdtpFrame};
 
 /// Context data after receiving the frame.
 #[derive(Debug, Default, Clone)]
@@ -25,7 +21,7 @@ pub struct FrameContext {
     /// Number of packets per second.
     pub pps: usize,
     /// Unit for representation of rotation in space.
-    pub quaternion: Option<UnitQuaternion<f32>>,
+    pub quaternion: Option<Quat32>,
 }
 
 /// Application events enumeration.

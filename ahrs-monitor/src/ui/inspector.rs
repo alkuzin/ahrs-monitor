@@ -3,16 +3,17 @@
 
 //! Packet inspector tab user interface implementation.
 
-use crate::ui::utils::display_metric;
 use crate::{
-    model::{FrameContext, payload::Payload},
-    ui::TabViewer,
+    model::FrameContext,
+    ui::{TabViewer, utils::display_metric},
 };
 use eframe::epaint::Color32;
 use egui::{Layout, RichText};
 use std::fmt::Write;
-use tsilna_nav::protocol::idtp::{IdtpFrame, Mode};
-use zerocopy::FromBytes;
+use tsilna_nav::protocol::idtp::{
+    payload::Imu9,
+    {IdtpFrame, Mode},
+};
 
 /// Packet inspector tab handler.
 pub struct InspectorTab;
@@ -42,7 +43,7 @@ impl TabViewer for InspectorTab {
     fn ui(&mut self, ui: &mut egui::Ui, frame_ctx: &FrameContext) {
         if let Some(frame) = &frame_ctx.frame {
             ui.horizontal_top(|ui| {
-                let mut col_height: Option<f32> = None;
+                let mut col_height: f32 = 0.0;
 
                 let desired_size = egui::vec2(512.0, ui.available_height());
                 ui.allocate_ui(desired_size, |ui| {
@@ -54,9 +55,7 @@ impl TabViewer for InspectorTab {
                 let desired_size =
                     egui::vec2(ui.available_width(), ui.available_height());
                 ui.allocate_ui(desired_size, |ui| {
-                    if let Some(height) = col_height {
-                        display_payload_column(ui, frame, height);
-                    }
+                    display_payload_column(ui, frame, col_height);
                 });
             });
         }
@@ -77,94 +76,78 @@ fn display_hex_dump_column(
     ui: &mut egui::Ui,
     frame_ctx: &FrameContext,
     frame: &IdtpFrame,
-) -> Option<f32> {
-    if let Some(header) = frame.header() {
-        let preamble = header.preamble.to_le_bytes();
-        let preamble = std::str::from_utf8(&preamble).unwrap_or("Unknown");
-        let timestamp = header.timestamp;
-        let sequence = header.sequence;
-        let device_id = header.device_id;
-        let payload_size = header.payload_size;
-        let version = header.version;
-        let version_major = (version >> 4) & 0x0F;
-        let version_minor = version & 0x0F;
-        let version = format!("v{version_major}.{version_minor}");
-        let mode = Mode::from(header.mode);
-        let payload_type = header.payload_type;
-        let crc = header.crc;
+) -> f32 {
+    let header = frame.header();
+    let preamble = header.preamble.to_le_bytes();
+    let preamble = std::str::from_utf8(&preamble).unwrap_or("Unknown");
+    let timestamp = header.timestamp;
+    let sequence = header.sequence;
+    let device_id = header.device_id;
+    let payload_size = header.payload_size;
+    let version = header.version;
+    let version_major = (version >> 4) & 0x0F;
+    let version_minor = version & 0x0F;
+    let version = format!("v{version_major}.{version_minor}");
+    let mode = Mode::from(header.mode);
+    let payload_type = header.payload_type;
+    let crc = header.crc;
 
-        let (mode_label, mode_color) = match mode {
-            Mode::Lite => ("IDTP-L", Color32::RED),
-            Mode::Safety => ("IDTP-S (CRC-32)", Color32::LIGHT_BLUE),
-            Mode::Secure => ("IDTP-SEC (HMAC-SHA256)", Color32::GREEN),
-            Mode::Unknown => ("Unknown", Color32::GRAY),
-        };
+    let (mode_label, mode_color) = match mode {
+        Mode::Lite => ("IDTP-L", Color32::RED),
+        Mode::Safety => ("IDTP-S (CRC-32)", Color32::LIGHT_BLUE),
+        Mode::Secure => ("IDTP-SEC (HMAC-SHA256)", Color32::GREEN),
+        Mode::Unknown => ("Unknown", Color32::GRAY),
+    };
 
-        let (valid_label, valid_color) = if frame_ctx.is_valid {
-            ("VALID", Color32::GREEN)
-        } else {
-            ("INVALID", Color32::RED)
-        };
+    let (valid_label, valid_color) = if frame_ctx.is_valid {
+        ("VALID", Color32::GREEN)
+    } else {
+        ("INVALID", Color32::RED)
+    };
 
-        let col1_rect =
-            ui.with_layout(Layout::top_down(egui::Align::LEFT), |ui| {
-                // Displaying hex dump of the frame bytes.
-                ui.group(|ui| {
-                    // ui.set_min_width(512.0);
-                    display_hex_dump(ui, &frame_ctx.raw_frame);
-                });
+    let col1_rect = ui.with_layout(Layout::top_down(egui::Align::LEFT), |ui| {
+        // Displaying hex dump of the frame bytes.
+        ui.group(|ui| {
+            // ui.set_min_width(512.0);
+            display_hex_dump(ui, &frame_ctx.raw_frame);
+        });
 
-                ui.add_space(16.0);
+        ui.add_space(16.0);
 
-                // Displaying IDTP header info.
-                ui.group(|ui| {
-                    display_metric(
-                        ui,
-                        "Frame: is",
-                        &valid_label,
-                        None,
-                        Some(valid_color),
-                    );
-                    display_metric(ui, "Preamble:", &preamble, None, None);
-                    display_metric(
-                        ui,
-                        "Timestamp:",
-                        &timestamp,
-                        Some("µs"),
-                        None,
-                    );
-                    display_metric(ui, "Sequence:", &sequence, None, None);
-                    display_metric(ui, "Device ID:", &device_id, None, None);
-                    display_metric(
-                        ui,
-                        "Payload Size:",
-                        &payload_size,
-                        Some("bytes"),
-                        None,
-                    );
-                    display_metric(
-                        ui,
-                        "Protocol Mode:",
-                        &mode_label,
-                        None,
-                        Some(mode_color),
-                    );
-                    display_metric(ui, "Version:", &version, None, None);
-                    display_metric(
-                        ui,
-                        "Payload Type:",
-                        &payload_type,
-                        None,
-                        None,
-                    );
-                    display_metric(ui, "CRC:", &crc, None, None);
-                });
-            });
+        // Displaying IDTP header info.
+        ui.group(|ui| {
+            display_metric(
+                ui,
+                "Frame: is",
+                &valid_label,
+                None,
+                Some(valid_color),
+            );
+            display_metric(ui, "Preamble:", &preamble, None, None);
+            display_metric(ui, "Timestamp:", &timestamp, Some("µs"), None);
+            display_metric(ui, "Sequence:", &sequence, None, None);
+            display_metric(ui, "Device ID:", &device_id, None, None);
+            display_metric(
+                ui,
+                "Payload Size:",
+                &payload_size,
+                Some("bytes"),
+                None,
+            );
+            display_metric(
+                ui,
+                "Protocol Mode:",
+                &mode_label,
+                None,
+                Some(mode_color),
+            );
+            display_metric(ui, "Version:", &version, None, None);
+            display_metric(ui, "Payload Type:", &payload_type, None, None);
+            display_metric(ui, "CRC:", &crc, None, None);
+        });
+    });
 
-        return Some(col1_rect.response.rect.height());
-    }
-
-    None
+    col1_rect.response.rect.height()
 }
 
 /// Display payload metrics column user interface.
@@ -178,20 +161,20 @@ fn display_payload_column(
     frame: &IdtpFrame,
     col_height: f32,
 ) {
-    if let Ok(payload_bytes) = frame.payload()
-        && let Ok(payload) = Payload::read_from_prefix(payload_bytes)
-    {
-        let payload = payload.0;
+    if let Ok(payload) = frame.payload::<Imu9>() {
+        let acc = payload.acc;
+        let gyr = payload.gyr;
+        let mag = payload.mag;
 
-        let acc_x = payload.acc_x;
-        let acc_y = payload.acc_y;
-        let acc_z = payload.acc_z;
-        let gyr_x = payload.gyr_x;
-        let gyr_y = payload.gyr_y;
-        let gyr_z = payload.gyr_z;
-        let mag_x = payload.mag_x;
-        let mag_y = payload.mag_y;
-        let mag_z = payload.mag_z;
+        let acc_x = acc.acc_x;
+        let acc_y = acc.acc_y;
+        let acc_z = acc.acc_z;
+        let gyr_x = gyr.gyr_x;
+        let gyr_y = gyr.gyr_y;
+        let gyr_z = gyr.gyr_z;
+        let mag_x = mag.mag_x;
+        let mag_y = mag.mag_y;
+        let mag_z = mag.mag_z;
 
         ui.with_layout(Layout::top_down(egui::Align::LEFT), |ui| {
             ui.group(|ui| {

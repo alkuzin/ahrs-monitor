@@ -4,10 +4,10 @@
 //! Telemetry tab user interface implementation.
 
 use crate::{
-    model::{FrameContext, payload::Payload},
+    model::FrameContext,
     ui::{TabViewer, utils::Plotter},
 };
-use zerocopy::FromBytes;
+use tsilna_nav::protocol::idtp::payload::Imu9;
 
 /// Number of metrics in history.
 const HISTORY_ENTRIES: usize = 9;
@@ -29,21 +29,15 @@ impl TelemetryTab {
     /// - `frame_ctx` - given current frame context to handle.
     pub fn add_data(&mut self, frame_ctx: &FrameContext) {
         if let Some(frame) = frame_ctx.frame
-            && let Ok(payload_bytes) = frame.payload()
-            && let Ok(payload) = Payload::read_from_prefix(payload_bytes)
+            && let Ok(payload) = frame.payload::<Imu9>()
         {
-            let payload = payload.0;
+            let acc = payload.acc;
+            let gyr = payload.gyr;
+            let mag = payload.mag;
 
             let data: [f32; HISTORY_ENTRIES] = [
-                payload.acc_x,
-                payload.acc_y,
-                payload.mag_z,
-                payload.gyr_x,
-                payload.gyr_y,
-                payload.gyr_z,
-                payload.mag_x,
-                payload.mag_y,
-                payload.mag_z,
+                acc.acc_x, acc.acc_y, acc.acc_z, gyr.gyr_x, gyr.gyr_y,
+                gyr.gyr_z, mag.mag_x, mag.mag_y, mag.mag_z,
             ];
 
             self.plotter.add_data(data);

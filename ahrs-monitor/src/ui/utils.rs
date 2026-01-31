@@ -4,7 +4,7 @@
 //! Utils for AHRS Monitor user interface.
 
 use eframe::epaint::Color32;
-use egui::{RichText, Vec2b};
+use egui::RichText;
 use egui_plot::{Corner, Legend, Line, Plot, PlotPoints};
 use std::collections::VecDeque;
 
@@ -133,27 +133,25 @@ impl<const ENTRIES: usize, const POINTS: usize> Plotter<ENTRIES, POINTS> {
             .include_x(x_range);
 
         plot.show(ui, |plot_ui| {
-                for i in 0..3 {
-                    let history_idx = start_idx + i;
-                    if let Some(sequence) = self.history.get(history_idx) {
-                        let points: PlotPoints = sequence
-                            .iter()
-                            .enumerate()
-                            .map(|(idx, &val)| [idx as f64, val])
-                            .collect();
+            for i in 0..3 {
+                let history_idx = start_idx + i;
+                if let Some(sequence) = self.history.get(history_idx) {
+                    let points: PlotPoints = sequence
+                        .iter()
+                        .enumerate()
+                        .map(|(idx, &val)| [idx as f64, val])
+                        .collect();
 
-                        if let Some(label) = labels.get(i)
-                            && let Some(color) = colors.get(i)
-                        {
-                            plot_ui.line(
-                                Line::new(*label, points)
-                                    .color(*color)
-                                    .width(0.8),
-                            );
-                        }
+                    if let Some(label) = labels.get(i)
+                        && let Some(color) = colors.get(i)
+                    {
+                        plot_ui.line(
+                            Line::new(*label, points).color(*color).width(0.8),
+                        );
                     }
                 }
-            });
+            }
+        });
 
         ui.add_space(10.0);
     }
@@ -168,6 +166,9 @@ impl<const ENTRIES: usize, const POINTS: usize> Default
     /// - New `Plotter` object.
     fn default() -> Self {
         let history = std::array::from_fn(|_| VecDeque::with_capacity(POINTS));
-        Self { history, plot_height: None }
+        Self {
+            history,
+            plot_height: None,
+        }
     }
 }

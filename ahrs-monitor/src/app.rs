@@ -214,8 +214,7 @@ impl App {
                 AppTab::Telemetry(tab) => tab.ui(ui, frame_ctx),
                 AppTab::Inspector(tab) => tab.ui(ui, frame_ctx),
             }
-        }
-        else {
+        } else {
             ui.vertical_centered(|ui| {
                 ui.add_space(ui.available_height() / 2.0 - 50.0);
                 ui.add(egui::Spinner::new().size(40.0));

@@ -4,7 +4,7 @@
 //! Dashboard tab user interface implementation.
 
 use crate::{
-    model::{FrameContext, attitude::Attitude},
+    model::FrameContext,
     ui::{
         TabViewer,
         utils::{Plotter, display_metric},
@@ -12,7 +12,7 @@ use crate::{
 };
 use eframe::epaint::Stroke;
 use egui::{Align2, Color32, FontId, Pos2, Sense, vec2};
-use nalgebra::{UnitQuaternion, Vector3};
+use tsilna_nav::math::{Quat32, euler::Euler32, na::Vector3};
 
 /// Roll angle color.
 const ROLL_COLOR: Color32 = Color32::LIGHT_RED;
@@ -106,7 +106,7 @@ impl DashboardTab {
     /// - `frame_ctx` - given current frame context to handle.
     pub fn add_data(&mut self, frame_ctx: &FrameContext) {
         if let Some(quaternion) = frame_ctx.quaternion {
-            let attitude = Attitude::from_quaternion(&quaternion);
+            let attitude = Euler32::from_quaternion(quaternion);
 
             let data: [f32; HISTORY_ENTRIES] =
                 [attitude.roll, attitude.pitch, attitude.yaw];
@@ -136,11 +136,7 @@ impl DashboardTab {
     /// - `ui` - given screen UI handler.
     /// - `attitude` - given attitude in Euler angles representation.
     /// - `quaternion` - given quaternion to handle.
-    fn display_attitude_metrics(
-        &self,
-        ui: &mut egui::Ui,
-        quaternion: &UnitQuaternion<f32>,
-    ) {
+    fn display_attitude_metrics(&self, ui: &mut egui::Ui, quaternion: &Quat32) {
         ui.group(|ui| {
             ui.set_height(ui.available_height() * 0.90);
             ui.set_width(ui.available_width());
@@ -257,7 +253,7 @@ const CUBE_EDGES: [(usize, usize); 12] = [
 /// # Parameters
 /// - `ui` - given screen UI handler.
 /// - `rotation` - given quaternion to handle.
-fn display_attitude_widget(ui: &mut egui::Ui, rotation: &UnitQuaternion<f32>) {
+fn display_attitude_widget(ui: &mut egui::Ui, rotation: &Quat32) {
     let (rect, _) = ui.allocate_at_least(ui.available_size(), Sense::hover());
     let center = rect.center();
     let scale = rect.width().min(rect.height()) * 0.2;
