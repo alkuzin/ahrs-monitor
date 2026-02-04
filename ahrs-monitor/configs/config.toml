@@ -16,3 +16,7 @@ payload_type = 0x06
 ip_address = "127.0.0.1"
 # Ingester's UDP port.
 udp_port = 10000
+# Simulator's IP address.
+simulator_ip_address = "127.0.0.1"
+# Simulator's UDP port.
+simulator_udp_port = 10001

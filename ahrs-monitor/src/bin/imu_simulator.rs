@@ -5,11 +5,14 @@
 
 use std::{ops::Range, time::Duration};
 use tokio::{net::UdpSocket, time::Instant};
-use tsilna_nav::protocol::idtp::payload::{Imu3Acc, Imu3Gyr, Imu3Mag, Imu9};
 use tsilna_nav::{
     math::rng::Xorshift,
-    protocol::idtp::{IdtpFrame, IdtpHeader, Mode},
+    protocol::idtp::{
+        IdtpFrame, IdtpHeader, IdtpMode,
+        payload::{Imu3Acc, Imu3Gyr, Imu3Mag, Imu9}
+    },
 };
+use ahrs_monitor::config::{self, load_config};
 
 /// Pseudo-random accelerometer readings range.
 const RNG_ACC_RANGE: Range<f32> = -39.22..39.22; // +-4g.
@@ -51,8 +54,19 @@ pub fn generate_payload(state: u32) -> Imu9 {
 
 #[tokio::main]
 async fn main() -> std::io::Result<()> {
-    let socket = UdpSocket::bind("127.0.0.1:10001").await?;
-    let target_addr = "127.0.0.1:10000";
+    let app_config = load_config(config::CONFIG_FILE_PATH);
+
+    let simulator_addr = format!(
+        "{}:{}",
+        app_config.net.simulator_ip_address,
+        app_config.net.simulator_udp_port,
+    );
+
+    let target_addr = format!(
+        "{}:{}", app_config.net.ip_address, app_config.net.udp_port
+    );
+
+    let socket = UdpSocket::bind(simulator_addr).await?;
 
     let mut sequence = 0u32;
     let mut buffer = vec![0u8; 64];
@@ -65,7 +79,7 @@ async fn main() -> std::io::Result<()> {
 
         // Setting the IDTP header.
         let mut header = IdtpHeader::new();
-        header.mode = Mode::Safety as u8;
+        header.mode = IdtpMode::Safety.into();
         header.device_id = 0xABCD;
         header.sequence = sequence;
         header.timestamp = start_time.elapsed().as_micros() as u32;
@@ -77,7 +91,7 @@ async fn main() -> std::io::Result<()> {
 
         let frame_size = frame.size();
         let _ = frame.pack(&mut buffer[..frame_size], None);
-        socket.send_to(&buffer, target_addr).await?;
+        socket.send_to(&buffer, &target_addr).await?;
 
         sequence += 1;
 
