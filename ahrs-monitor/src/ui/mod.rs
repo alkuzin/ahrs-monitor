@@ -3,7 +3,7 @@
 
 //! The core responsible for AHRS Monitor user interface.
 
-use crate::model::FrameContext;
+use crate::{config::AppConfig, model::FrameContext};
 pub use dashboard::DashboardTab;
 pub use inspector::InspectorTab;
 pub use telemetry::TelemetryTab;
@@ -42,5 +42,11 @@ pub trait TabViewer {
     /// # Parameters
     /// - `ui` - given screen UI handler.
     /// - `frame_ctx` - given current frame context to handle.
-    fn ui(&mut self, ui: &mut egui::Ui, frame_ctx: &FrameContext);
+    /// - `app_cfg` - given global config to handle.
+    fn ui(
+        &mut self,
+        ui: &mut egui::Ui,
+        frame_ctx: &FrameContext,
+        app_cfg: &AppConfig,
+    );
 }

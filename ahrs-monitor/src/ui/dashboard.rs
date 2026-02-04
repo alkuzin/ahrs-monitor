@@ -4,6 +4,7 @@
 //! Dashboard tab user interface implementation.
 
 use crate::{
+    config::AppConfig,
     model::FrameContext,
     ui::{
         TabViewer,
@@ -58,7 +59,13 @@ impl TabViewer for DashboardTab {
     /// # Parameters
     /// - `ui` - given screen UI handler.
     /// - `frame_ctx` - given current frame context to handle.
-    fn ui(&mut self, ui: &mut egui::Ui, frame_ctx: &FrameContext) {
+    /// - `app_cfg` - given global config to handle.
+    fn ui(
+        &mut self,
+        ui: &mut egui::Ui,
+        frame_ctx: &FrameContext,
+        _: &AppConfig,
+    ) {
         if let Some(quaternion) = frame_ctx.quaternion {
             ui.vertical(|ui| {
                 let plot_height = ui.available_height() * 0.45;
@@ -125,8 +132,9 @@ impl DashboardTab {
             ui,
             "attitude_p",
             "Attitude (Euler Angles)",
-            0,
-            ["Roll (X)", "Pitch (Y)", "Yaw (Z)"],
+            &[0, 1, 2],
+            &["Roll (X)", "Pitch (Y)", "Yaw (Z)"],
+            &[ROLL_COLOR, PITCH_COLOR, YAW_COLOR],
         );
     }
 

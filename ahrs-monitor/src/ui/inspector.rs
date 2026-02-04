@@ -4,6 +4,7 @@
 //! Packet inspector tab user interface implementation.
 
 use crate::{
+    config::AppConfig,
     model::FrameContext,
     ui::{TabViewer, utils::display_metric},
 };
@@ -12,7 +13,7 @@ use egui::{Layout, RichText};
 use std::fmt::Write;
 use tsilna_nav::protocol::idtp::{
     payload::Imu9,
-    {IdtpFrame, Mode},
+    {IdtpFrame, IdtpMode},
 };
 
 /// Packet inspector tab handler.
@@ -40,7 +41,13 @@ impl TabViewer for InspectorTab {
     /// # Parameters
     /// - `ui` - given screen UI handler.
     /// - `frame_ctx` - given current frame context to handle.
-    fn ui(&mut self, ui: &mut egui::Ui, frame_ctx: &FrameContext) {
+    /// - `app_cfg` - given global config to handle.
+    fn ui(
+        &mut self,
+        ui: &mut egui::Ui,
+        frame_ctx: &FrameContext,
+        _: &AppConfig,
+    ) {
         if let Some(frame) = &frame_ctx.frame {
             ui.horizontal_top(|ui| {
                 let mut col_height: f32 = 0.0;
@@ -78,6 +85,7 @@ fn display_hex_dump_column(
     frame: &IdtpFrame,
 ) -> f32 {
     let header = frame.header();
+
     let preamble = header.preamble.to_le_bytes();
     let preamble = std::str::from_utf8(&preamble).unwrap_or("Unknown");
     let timestamp = header.timestamp;
@@ -88,15 +96,19 @@ fn display_hex_dump_column(
     let version_major = (version >> 4) & 0x0F;
     let version_minor = version & 0x0F;
     let version = format!("v{version_major}.{version_minor}");
-    let mode = Mode::from(header.mode);
     let payload_type = header.payload_type;
     let crc = header.crc;
 
-    let (mode_label, mode_color) = match mode {
-        Mode::Lite => ("IDTP-L", Color32::RED),
-        Mode::Safety => ("IDTP-S (CRC-32)", Color32::LIGHT_BLUE),
-        Mode::Secure => ("IDTP-SEC (HMAC-SHA256)", Color32::GREEN),
-        Mode::Unknown => ("Unknown", Color32::GRAY),
+    let (mode_label, mode_color) = {
+        if let Ok(mode) = IdtpMode::try_from(payload_type) {
+            match mode {
+                IdtpMode::Lite => ("IDTP-L", Color32::RED),
+                IdtpMode::Safety => ("IDTP-S (CRC-32)", Color32::LIGHT_BLUE),
+                IdtpMode::Secure => ("IDTP-SEC (HMAC-SHA256)", Color32::GREEN),
+            }
+        } else {
+            ("Unknown", Color32::GRAY)
+        }
     };
 
     let (valid_label, valid_color) = if frame_ctx.is_valid {
@@ -108,7 +120,6 @@ fn display_hex_dump_column(
     let col1_rect = ui.with_layout(Layout::top_down(egui::Align::LEFT), |ui| {
         // Displaying hex dump of the frame bytes.
         ui.group(|ui| {
-            // ui.set_min_width(512.0);
             display_hex_dump(ui, &frame_ctx.raw_frame);
         });
 
