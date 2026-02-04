@@ -5,8 +5,6 @@
 
 #[tokio::main]
 async fn main() {
-    ahrs_monitor::init();
-
     if let Err(e) = ahrs_monitor::run() {
         log::error!("{}", e);
         std::process::exit(1);

@@ -14,21 +14,27 @@
     missing_docs
 )]
 
+#[macro_use]
+pub mod macros;
 pub mod app;
 pub mod config;
 pub mod core;
 pub mod model;
 pub mod ui;
 
-use crate::app::App;
-use crate::core::Ingester;
-use crate::model::AppEvent;
+use crate::{
+    app::App,
+    config::{AppConfig, ImuMetrics},
+    core::Ingester,
+    model::AppEvent,
+};
 use chrono::Local;
 use eframe::{HardwareAcceleration, egui};
 use env_logger::Builder;
 use log::LevelFilter;
-use std::{io::Write, sync::Once};
+use std::{env, fs, io::Write, process, sync::Once};
 use tokio::sync::mpsc;
+use tsilna_nav::protocol::idtp::payload::PayloadType;
 
 /// Used in order to ensure that the initialization code runs only once.
 static INIT: Once = Once::new();
@@ -55,10 +61,51 @@ fn init_logging(filter: LevelFilter) {
     });
 }
 
+/// Load application's configurations from specified path.
+///
+/// # Parameters
+/// - `path` - given config file path.
+///
+/// # Returns
+/// - Application's configurations.
+pub fn load_config(path: &str) -> AppConfig {
+    let content = fs::read_to_string(path).unwrap_or_else(|err| {
+        log::error!("Error load config '{}': {}", path, err);
+        process::exit(1);
+    });
+
+    let mut config: AppConfig =
+        toml::from_str(&content).unwrap_or_else(|err| {
+            log::error!("Error to parse TOML: {}", err);
+            process::exit(1);
+        });
+
+    if let Ok(payload_type) = PayloadType::try_from(config.imu.payload_type) {
+        config.imu.metrics = ImuMetrics::from(payload_type);
+    } else {
+        log::error!("Error to parse payload type: {}", config.imu.payload_type);
+        process::exit(1);
+    }
+
+    config
+}
+
 /// Initialize AHRS monitor.
-pub fn init() {
+fn init() -> AppConfig {
     init_logging(LevelFilter::Info);
     log::info!("Initialized AHRS monitor");
+
+    let args: Vec<String> = env::args().collect();
+
+    let config_path = args
+        .iter()
+        .position(|arg| arg == "--config")
+        .and_then(|pos| args.get(pos + 1))
+        .map(|s| s.as_str())
+        .unwrap_or("configs/config.toml");
+
+    log::info!("Loading configurations from: {}", config_path);
+    load_config(config_path)
 }
 
 /// Run AHRS monitor.
@@ -70,11 +117,13 @@ pub fn init() {
 /// # Errors
 /// - Eframe errors.
 pub fn run() -> eframe::Result {
+    let app_config = init();
     let (tx, rx) = mpsc::channel::<AppEvent>(config::MPSC_CHANNEL_BUFFER_SIZE);
+    let app_config_clone = app_config.clone();
 
     // Spawning a new asynchronous task for handling IDTP frames.
     tokio::spawn(async move {
-        let mut ingester = Ingester::new(tx);
+        let mut ingester = Ingester::new(tx, app_config_clone.net);
 
         if let Err(e) = ingester.run().await {
             log::error!("Core service failed: {e:?}");
@@ -95,6 +144,6 @@ pub fn run() -> eframe::Result {
     eframe::run_native(
         config::APP_WINDOW_TITLE,
         options,
-        Box::new(|_| Ok(Box::new(App::new(rx)))),
+        Box::new(|_| Ok(Box::new(App::new(app_config, rx)))),
     )
 }
