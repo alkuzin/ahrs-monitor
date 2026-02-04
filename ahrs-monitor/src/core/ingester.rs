@@ -3,16 +3,12 @@
 
 //! IMU communication handler.
 
-use crate::{
-    config,
-    model::{AppEvent, FrameContext},
-};
+use crate::{config::NetConfig, model::{AppEvent, FrameContext}};
 use anyhow::anyhow;
 use std::ops::Range;
 use tokio::{net::UdpSocket, sync::mpsc::Sender, time};
-use tsilna_nav::math::{Quat32, na};
 use tsilna_nav::{
-    math::rng::Xorshift,
+    math::{Quat32, na, rng::Xorshift},
     protocol::idtp::{IDTP_FRAME_MAX_SIZE, IdtpFrame},
 };
 
@@ -20,6 +16,8 @@ use tsilna_nav::{
 pub struct Ingester {
     /// MPSC sender handle.
     tx: Sender<AppEvent>,
+    /// Networks configurations.
+    net_cfg: NetConfig,
 }
 
 impl Ingester {
@@ -27,12 +25,13 @@ impl Ingester {
     ///
     /// # Parameters
     /// - `tx` - given MPSC sender handle.
+    /// - `cfg` - given networks related configurations.
     ///
     /// # Returns
     /// - New `Ingester` object.
     #[must_use]
-    pub const fn new(tx: Sender<AppEvent>) -> Self {
-        Self { tx }
+    pub const fn new(tx: Sender<AppEvent>, cfg: NetConfig) -> Self {
+        Self { tx, net_cfg: cfg }
     }
 
     /// Start communication with IMU.
@@ -44,7 +43,7 @@ impl Ingester {
     pub async fn run(&mut self) -> anyhow::Result<()> {
         log::info!("Running Ingester");
 
-        let pair = (config::UDP_IP_ADDR, config::UDP_PORT);
+        let pair = (self.net_cfg.ip_address.clone(), self.net_cfg.udp_port);
         let bind_result = UdpSocket::bind(pair).await;
 
         // Sending UDP connection status.
