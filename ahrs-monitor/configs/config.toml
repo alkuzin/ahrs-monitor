@@ -1,0 +1,18 @@
+# SPDX-License-Identifier: Apache-2.0.
+# Copyright (C) 2026-present ahrs-monitor project and contributors.
+
+# AHRS Monitor configurations.
+
+# IMU configurations.
+[imu]
+# IMU sample rate in Hz.
+sample_rate = 200.0
+# IDTP payload type.
+payload_type = 0x06
+
+# Networks configurations.
+[net]
+# Ingester's IP address.
+ip_address = "127.0.0.1"
+# Ingester's UDP port.
+udp_port = 10000
