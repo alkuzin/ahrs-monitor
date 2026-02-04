@@ -102,27 +102,23 @@ impl<const ENTRIES: usize, const POINTS: usize> Plotter<ENTRIES, POINTS> {
     /// - `ui` - given screen UI handler.
     /// - `id` - given plot identifier.
     /// - `title` - given title of the plot.
-    /// - `start_idx` - given start index of specific metrics in history.
-    /// - `labels` - given labels for 3 metrics to plot.
+    /// - `indices` - given indices of specific metrics in history.
+    /// - `labels` - given labels for each metric to plot.
+    /// - `colors` - given colors for each metric to plot.
     #[allow(clippy::cast_precision_loss)]
     pub fn render_plot(
         &mut self,
         ui: &mut egui::Ui,
         id: &str,
         title: &str,
-        start_idx: usize,
-        labels: [&str; 3],
+        indices: &[usize],
+        labels: &[&str],
+        colors: &[Color32],
     ) {
+        ui.label(RichText::new(title).strong());
+
         let plot_height = self.plot_height.unwrap_or(256.0);
         let x_range = POINTS as f64;
-
-        let colors = [
-            Color32::LIGHT_BLUE,
-            Color32::LIGHT_RED,
-            Color32::LIGHT_GREEN,
-        ];
-
-        ui.label(RichText::new(title).strong());
 
         let plot = Plot::new(id)
             .height(plot_height)
@@ -133,9 +129,8 @@ impl<const ENTRIES: usize, const POINTS: usize> Plotter<ENTRIES, POINTS> {
             .include_x(x_range);
 
         plot.show(ui, |plot_ui| {
-            for i in 0..3 {
-                let history_idx = start_idx + i;
-                if let Some(sequence) = self.history.get(history_idx) {
+            for (i, history_idx) in indices.iter().enumerate() {
+                if let Some(sequence) = self.history.get(*history_idx) {
                     let points: PlotPoints = sequence
                         .iter()
                         .enumerate()
