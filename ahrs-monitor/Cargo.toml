@@ -33,6 +33,11 @@ tokio = { version = "1.49", features = ["full"] }
 tsilna-nav = { git = "https://github.com/alkuzin/tsilna", features = ["math", "protocol", "idtp_sw_impl"] }
 # A trait object based error type for easy idiomatic error handling.
 anyhow = "1.0"
+# Framework for serializing and deserializing Rust data structures
+# efficiently and generically.
+serde = { version = "1.0", features = ["derive"] }
+# A serde compatible TOML parsing library.
+toml = "0.9"
 
 # Executable files section.
 [[bin]]
