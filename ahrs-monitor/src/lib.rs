@@ -61,35 +61,6 @@ fn init_logging(filter: LevelFilter) {
     });
 }
 
-/// Load application's configurations from specified path.
-///
-/// # Parameters
-/// - `path` - given config file path.
-///
-/// # Returns
-/// - Application's configurations.
-pub fn load_config(path: &str) -> AppConfig {
-    let content = fs::read_to_string(path).unwrap_or_else(|err| {
-        log::error!("Error load config '{}': {}", path, err);
-        process::exit(1);
-    });
-
-    let mut config: AppConfig =
-        toml::from_str(&content).unwrap_or_else(|err| {
-            log::error!("Error to parse TOML: {}", err);
-            process::exit(1);
-        });
-
-    if let Ok(payload_type) = PayloadType::try_from(config.imu.payload_type) {
-        config.imu.metrics = ImuMetrics::from(payload_type);
-    } else {
-        log::error!("Error to parse payload type: {}", config.imu.payload_type);
-        process::exit(1);
-    }
-
-    config
-}
-
 /// Initialize AHRS monitor.
 fn init() -> AppConfig {
     init_logging(LevelFilter::Info);
@@ -102,10 +73,10 @@ fn init() -> AppConfig {
         .position(|arg| arg == "--config")
         .and_then(|pos| args.get(pos + 1))
         .map(|s| s.as_str())
-        .unwrap_or("configs/config.toml");
+        .unwrap_or(config::CONFIG_FILE_PATH);
 
     log::info!("Loading configurations from: {}", config_path);
-    load_config(config_path)
+    config::load_config(config_path)
 }
 
 /// Run AHRS monitor.

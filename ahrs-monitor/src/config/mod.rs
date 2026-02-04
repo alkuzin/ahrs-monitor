@@ -6,10 +6,12 @@
 mod imu;
 mod net;
 
+use std::{fs, process};
 use crate::app_config;
 pub use imu::*;
 pub use net::*;
 use serde::{Deserialize, Serialize};
+use tsilna_nav::protocol::idtp::payload::PayloadType;
 
 /// Window width in pixels.
 pub const APP_WINDOW_WIDTH: f32 = 1024.0;
@@ -32,6 +34,9 @@ pub const HISTORY_MAX_SIZE: usize = 32;
 /// MPSC channel max number of messages in the buffer.
 pub const MPSC_CHANNEL_BUFFER_SIZE: usize = 128;
 
+/// AHRS Monitor configuration file path.
+pub const CONFIG_FILE_PATH: &str = "configs/config.toml";
+
 app_config! {
     /// Application's configurations struct.
     pub struct AppConfig {
@@ -40,4 +45,33 @@ app_config! {
         /// Networks configurations.
         pub net: NetConfig,
     }
+}
+
+/// Load application's configurations from specified path.
+///
+/// # Parameters
+/// - `path` - given config file path.
+///
+/// # Returns
+/// - Application's configurations.
+pub fn load_config(path: &str) -> AppConfig {
+    let content = fs::read_to_string(path).unwrap_or_else(|err| {
+        log::error!("Error load config '{}': {}", path, err);
+        process::exit(1);
+    });
+
+    let mut config: AppConfig =
+        toml::from_str(&content).unwrap_or_else(|err| {
+            log::error!("Error to parse TOML: {}", err);
+            process::exit(1);
+        });
+
+    if let Ok(payload_type) = PayloadType::try_from(config.imu.payload_type) {
+        config.imu.metrics = ImuMetrics::from(payload_type);
+    } else {
+        log::error!("Error to parse payload type: {}", config.imu.payload_type);
+        process::exit(1);
+    }
+
+    config
 }
