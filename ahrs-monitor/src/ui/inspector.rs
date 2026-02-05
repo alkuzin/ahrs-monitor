@@ -6,15 +6,12 @@
 use crate::{
     config::AppConfig,
     model::FrameContext,
-    ui::{TabViewer, utils::display_metric},
+    ui::{TabViewer, utils::{display_metric, extract_readings}},
 };
 use eframe::epaint::Color32;
 use egui::{Layout, RichText};
 use std::fmt::Write;
-use tsilna_nav::protocol::idtp::{
-    payload::Imu9,
-    {IdtpFrame, IdtpMode},
-};
+use tsilna_nav::protocol::idtp::{IdtpFrame, IdtpMode, payload::PayloadType};
 
 /// Packet inspector tab handler.
 pub struct InspectorTab;
@@ -46,7 +43,7 @@ impl TabViewer for InspectorTab {
         &mut self,
         ui: &mut egui::Ui,
         frame_ctx: &FrameContext,
-        _: &AppConfig,
+        app_cfg: &AppConfig,
     ) {
         if let Some(frame) = &frame_ctx.frame {
             ui.horizontal_top(|ui| {
@@ -62,7 +59,7 @@ impl TabViewer for InspectorTab {
                 let desired_size =
                     egui::vec2(ui.available_width(), ui.available_height());
                 ui.allocate_ui(desired_size, |ui| {
-                    display_payload_column(ui, frame, col_height);
+                    display_payload_column(ui, frame, col_height, &app_cfg);
                 });
             });
         }
@@ -77,8 +74,7 @@ impl TabViewer for InspectorTab {
 /// - `frame` - given IDTP frame to handle.
 ///
 /// # Returns
-/// - Column height if frame and its contents are valid.
-/// - `None` - otherwise.
+/// - Column height.
 fn display_hex_dump_column(
     ui: &mut egui::Ui,
     frame_ctx: &FrameContext,
@@ -167,25 +163,53 @@ fn display_hex_dump_column(
 /// - `ui` - given screen UI handler.
 /// - `frame` - given IDTP frame to handle.
 /// - `col_height` - given hex dump column height in pixels.
+/// - `app_cfg` - given global config to handle.
 fn display_payload_column(
     ui: &mut egui::Ui,
     frame: &IdtpFrame,
     col_height: f32,
+    app_cfg: &AppConfig,
 ) {
-    if let Ok(payload) = frame.payload::<Imu9>() {
-        let acc = payload.acc;
-        let gyr = payload.gyr;
-        let mag = payload.mag;
+    if let Ok(payload_type) = PayloadType::try_from(app_cfg.imu.payload_type) {
+        let data = extract_readings(frame, &payload_type);
+        let payload_type = app_cfg.imu.payload_type;
 
-        let acc_x = acc.acc_x;
-        let acc_y = acc.acc_y;
-        let acc_z = acc.acc_z;
-        let gyr_x = gyr.gyr_x;
-        let gyr_y = gyr.gyr_y;
-        let gyr_z = gyr.gyr_z;
-        let mag_x = mag.mag_x;
-        let mag_y = mag.mag_y;
-        let mag_z = mag.mag_z;
+        let [
+            metric0,
+            metric1,
+            metric2,
+            metric3,
+            metric4,
+            metric5,
+            metric6,
+            metric7,
+            metric8,
+            metric9,
+        ] = data;
+
+        let imu_metrics = app_cfg.imu.metrics;
+        let (acc_x, acc_y, acc_z) = (metric0, metric1, metric2);
+        let (gyr_x, gyr_y, gyr_z) = {
+            if payload_type == PayloadType::Imu3Gyr.into() {
+                (metric0, metric1, metric2)
+            } else {
+                (metric3, metric4, metric5)
+            }
+        };
+        let (mag_x, mag_y, mag_z) = {
+            if payload_type == PayloadType::Imu3Mag.into() {
+                (metric0, metric1, metric2)
+            } else {
+                (metric6, metric7, metric8)
+            }
+        };
+        let baro = metric9;
+        let (q_w, q_x, q_y, q_z) = (metric0, metric1, metric2, metric3);
+
+        let acc_mu = Some("m/s^2");
+        let gyr_mu = Some("rad/s");
+        let mag_mu = Some("μT");
+        let baro_mu = Some("Pa");
 
         ui.with_layout(Layout::top_down(egui::Align::LEFT), |ui| {
             ui.group(|ui| {
@@ -201,15 +225,55 @@ fn display_payload_column(
                         ui.vertical(|ui| {
                             ui.label(RichText::new("Payload Metrics").strong());
                             ui.separator();
-                            display_metric(ui, "ACC X:", &acc_x, None, None);
-                            display_metric(ui, "ACC Y:", &acc_y, None, None);
-                            display_metric(ui, "ACC Z:", &acc_z, None, None);
-                            display_metric(ui, "GYR X:", &gyr_x, None, None);
-                            display_metric(ui, "GYR Y:", &gyr_y, None, None);
-                            display_metric(ui, "GYR Z:", &gyr_z, None, None);
-                            display_metric(ui, "MAG X:", &mag_x, None, None);
-                            display_metric(ui, "MAG Y:", &mag_y, None, None);
-                            display_metric(ui, "MAG Z:", &mag_z, None, None);
+
+                            if imu_metrics.acc {
+                                display_metric(
+                                    ui, "ACC X:", &acc_x, acc_mu, None,
+                                );
+                                display_metric(
+                                    ui, "ACC Y:", &acc_y, acc_mu, None,
+                                );
+                                display_metric(
+                                    ui, "ACC Z:", &acc_z, acc_mu, None,
+                                );
+                            }
+
+                            if imu_metrics.gyr {
+                                display_metric(
+                                    ui, "GYR X:", &gyr_x, gyr_mu, None,
+                                );
+                                display_metric(
+                                    ui, "GYR Y:", &gyr_y, gyr_mu, None,
+                                );
+                                display_metric(
+                                    ui, "GYR Z:", &gyr_z, gyr_mu, None,
+                                );
+                            }
+
+                            if imu_metrics.mag {
+                                display_metric(
+                                    ui, "MAG X:", &mag_x, mag_mu, None,
+                                );
+                                display_metric(
+                                    ui, "MAG Y:", &mag_y, mag_mu, None,
+                                );
+                                display_metric(
+                                    ui, "MAG Z:", &mag_z, mag_mu, None,
+                                );
+                            }
+
+                            if imu_metrics.baro {
+                                display_metric(
+                                    ui, "BARO:", &baro, baro_mu, None,
+                                );
+                            }
+
+                            if imu_metrics.quat {
+                                display_metric(ui, "QUAT W:", &q_w, None, None);
+                                display_metric(ui, "QUAT X:", &q_x, None, None);
+                                display_metric(ui, "QUAT Y:", &q_y, None, None);
+                                display_metric(ui, "QUAT Z:", &q_z, None, None);
+                            }
                         });
                     });
             });
