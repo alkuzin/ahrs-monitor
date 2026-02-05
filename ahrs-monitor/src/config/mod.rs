@@ -6,11 +6,11 @@
 mod imu;
 mod net;
 
-use std::{fs, process};
 use crate::app_config;
 pub use imu::*;
 pub use net::*;
 use serde::{Deserialize, Serialize};
+use std::{fs, process};
 use tsilna_nav::protocol::idtp::payload::PayloadType;
 
 /// Window width in pixels.

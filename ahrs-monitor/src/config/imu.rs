@@ -32,6 +32,15 @@ impl ImuConfig {
         let standard_types_range = 0x00..0x06 + 1;
         standard_types_range.contains(&self.payload_type)
     }
+
+    /// Get payload type.
+    ///
+    /// # Returns
+    /// - Payload type according to IDTP specification.
+    pub fn payload_type(&self) -> PayloadType {
+        PayloadType::try_from(self.payload_type)
+            .unwrap_or(PayloadType::Imu6)
+    }
 }
 
 app_config! {
