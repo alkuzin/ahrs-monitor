@@ -146,6 +146,7 @@ dependencies = [
  "egui",
  "egui_plot",
  "env_logger",
+ "fusion-ahrs",
  "log",
  "serde",
  "tokio",
@@ -1290,6 +1291,15 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "cb4cb245038516f5f85277875cdaa4f7d2c9a0fa0468de06ed190163b1581fcf"
 dependencies = [
  "percent-encoding",
+]
+
+[[package]]
+name = "fusion-ahrs"
+version = "0.3.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "efe26ba23aa44106e2985e5ac1737e9ff590f5936de431701157617e283edce1"
+dependencies = [
+ "nalgebra",
 ]
 
 [[package]]

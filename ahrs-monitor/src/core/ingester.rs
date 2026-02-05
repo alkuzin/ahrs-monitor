@@ -3,15 +3,16 @@
 
 //! IMU communication handler.
 
+use crate::core::attitude::AttitudeEstimator;
 use crate::{
     config::NetConfig,
+    core::attitude::estimate_attitude,
     model::{AppEvent, FrameContext},
 };
 use anyhow::anyhow;
-use std::ops::Range;
 use tokio::{net::UdpSocket, sync::mpsc::Sender, time};
 use tsilna_nav::{
-    math::{Quat32, na, rng::Xorshift},
+    math::Quat32,
     protocol::idtp::{IDTP_FRAME_MAX_SIZE, IdtpFrame},
 };
 
@@ -64,6 +65,9 @@ impl Ingester {
         let mut prev_sequence: u32 = 0;
         let mut packets_in_last_second: usize = 0;
         let mut current_pps: usize = 0;
+        let mut last_timestamp_us: Option<u32> = None;
+
+        let mut ahrs = AttitudeEstimator::new();
 
         let mut begin_interval =
             tokio::time::interval(time::Duration::from_secs(1));
@@ -74,7 +78,7 @@ impl Ingester {
                     let (len, _addr) = recv?;
                     let raw_frame = buffer.get(..len).ok_or_else(|| anyhow!("Buffer underflow"))?;
 
-                    let mut is_valid = if IdtpFrame::validate(raw_frame, None).is_err() {
+                    let is_valid = if IdtpFrame::validate(raw_frame, None).is_err() {
                         bad_packets += 1;
                         false
                     }
@@ -86,19 +90,32 @@ impl Ingester {
 
                     let frame = if let Ok(frame) = IdtpFrame::try_from(raw_frame) {
                         let header = frame.header();
-                        // Checking correctness of the sequence number.
+
+                        let current_timestamp_us = header.timestamp;
                         let sequence = header.sequence;
 
-                        if sequence <= prev_sequence {
-                            bad_packets += 1;
-                            is_valid = false;
+                        // Calculating dt.
+                        let dt = if let Some(prev_us) = last_timestamp_us {
+                            let diff = if current_timestamp_us >= prev_us {
+                                current_timestamp_us - prev_us
+                            } else {
+                                // Handling wrap-around.
+                                (u32::MAX - prev_us).wrapping_add(current_timestamp_us)
+                            };
+
+                            (diff as f32 / 1_000_000.0).clamp(0.0001, 0.1)
+                        } else {
+                            0.005 // 200 Hz default for the first packet.
+                        };
+
+                        // Updating the timestamp if the sequence is actually moving forward.
+                        if sequence > prev_sequence || last_timestamp_us.is_none() {
+                            last_timestamp_us = Some(current_timestamp_us);
+                            prev_sequence = sequence;
                         }
 
                         q = Some(
-                            estimate_attitude(
-                                u32::try_from(total_packets)?,
-                                &frame
-                            )
+                            estimate_attitude(&mut ahrs, &frame, dt)
                         );
 
                         prev_sequence = sequence;
@@ -134,28 +151,4 @@ impl Ingester {
             }
         }
     }
-}
-
-// TODO: move to separate module.
-/// Estimate attitude based on IMU readings.
-///
-/// # Parameters
-/// - `seed` - given seed for pseudo-random numbers generator.
-/// - `frame` - given IDTP frame to handle.
-///
-/// # Returns
-/// - Attitude in quaternion representation.
-fn estimate_attitude(seed: u32, _frame: &IdtpFrame) -> Quat32 {
-    // TODO: estimate attitude using IMU readings.
-    const Q_RANGE: Range<f32> = -1.0..1.0;
-
-    let mut rng = Xorshift::new(seed);
-    let q = na::Quaternion::new(
-        rng.next_f32(Q_RANGE),
-        rng.next_f32(Q_RANGE),
-        rng.next_f32(Q_RANGE),
-        rng.next_f32(Q_RANGE),
-    );
-
-    Quat32::from_quaternion(q)
 }
