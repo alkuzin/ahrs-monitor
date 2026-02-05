@@ -216,13 +216,13 @@ impl App {
             if self.config.imu.is_correct() {
                 match tab {
                     AppTab::Dashboard(tab) => {
-                        tab.ui(ui, frame_ctx, &self.config)
+                        tab.ui(ui, frame_ctx, &self.config);
                     }
                     AppTab::Telemetry(tab) => {
-                        tab.ui(ui, frame_ctx, &self.config)
+                        tab.ui(ui, frame_ctx, &self.config);
                     }
                     AppTab::Inspector(tab) => {
-                        tab.ui(ui, frame_ctx, &self.config)
+                        tab.ui(ui, frame_ctx, &self.config);
                     }
                 }
             } else {
@@ -291,11 +291,9 @@ impl App {
                 .tabs
                 .iter_mut()
                 .find(|tab| matches!(tab, AppTab::Telemetry(_)))
-            {
-                if let Some(frame) = frame_ctx.frame {
+            && let Some(frame) = frame_ctx.frame {
                     tab.add_data(&frame, &self.config.imu.payload_type());
                 }
-            }
 
             if let Some(AppTab::Dashboard(tab)) = self
                 .tabs

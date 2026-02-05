@@ -54,15 +54,16 @@ app_config! {
 ///
 /// # Returns
 /// - Application's configurations.
+#[must_use]
 pub fn load_config(path: &str) -> AppConfig {
     let content = fs::read_to_string(path).unwrap_or_else(|err| {
-        log::error!("Error load config '{}': {}", path, err);
+        log::error!("Error load config '{path}': {err}");
         process::exit(1);
     });
 
     let mut config: AppConfig =
         toml::from_str(&content).unwrap_or_else(|err| {
-            log::error!("Error to parse TOML: {}", err);
+            log::error!("Error to parse TOML: {err}");
             process::exit(1);
         });
 

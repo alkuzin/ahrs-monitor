@@ -66,10 +66,9 @@ fn init() -> AppConfig {
         .iter()
         .position(|arg| arg == "--config")
         .and_then(|pos| args.get(pos + 1))
-        .map(|s| s.as_str())
-        .unwrap_or(config::CONFIG_FILE_PATH);
+        .map_or(config::CONFIG_FILE_PATH, |s| s.as_str());
 
-    log::info!("Loading configurations from: {}", config_path);
+    log::info!("Loading configurations from: {config_path}");
     config::load_config(config_path)
 }
 

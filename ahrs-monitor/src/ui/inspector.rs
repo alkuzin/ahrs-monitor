@@ -62,7 +62,7 @@ impl TabViewer for InspectorTab {
                 let desired_size =
                     egui::vec2(ui.available_width(), ui.available_height());
                 ui.allocate_ui(desired_size, |ui| {
-                    display_payload_column(ui, frame, col_height, &app_cfg);
+                    display_payload_column(ui, frame, col_height, app_cfg);
                 });
             });
         }
@@ -99,15 +99,11 @@ fn display_hex_dump_column(
     let crc = header.crc;
 
     let (mode_label, mode_color) = {
-        if let Ok(mode) = IdtpMode::try_from(payload_type) {
-            match mode {
-                IdtpMode::Lite => ("IDTP-L", Color32::RED),
-                IdtpMode::Safety => ("IDTP-S (CRC-32)", Color32::LIGHT_BLUE),
-                IdtpMode::Secure => ("IDTP-SEC (HMAC-SHA256)", Color32::GREEN),
-            }
-        } else {
-            ("Unknown", Color32::GRAY)
-        }
+        IdtpMode::try_from(payload_type).map_or(("Unknown", Color32::GRAY), |mode| match mode {
+            IdtpMode::Lite => ("IDTP-L", Color32::RED),
+            IdtpMode::Safety => ("IDTP-S (CRC-32)", Color32::LIGHT_BLUE),
+            IdtpMode::Secure => ("IDTP-SEC (HMAC-SHA256)", Color32::GREEN),
+        })
     };
 
     let (valid_label, valid_color) = if frame_ctx.is_valid {

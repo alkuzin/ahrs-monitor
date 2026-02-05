@@ -72,7 +72,7 @@ impl ImuSimulator {
 
         let mut frame = IdtpFrame::new();
         let payload_type = self.cfg.imu.payload_type();
-        let imu_metrics = self.cfg.imu.metrics.clone();
+        let imu_metrics = self.cfg.imu.metrics;
 
         let delay_time = Duration::from_millis(5); // 5 ms (200 Hz).
         let start_time = Instant::now();
@@ -86,7 +86,7 @@ impl ImuSimulator {
 
             frame.set_header(&header);
             let _ = frame
-                .set_payload_raw(&payload.to_bytes(), payload.payload_type());
+                .set_payload_raw(payload.to_bytes(), payload.payload_type());
 
             let frame_size = frame.size();
             let _ = frame.pack(&mut buffer[..frame_size], None);

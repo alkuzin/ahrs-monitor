@@ -20,6 +20,12 @@ const HISTORY_ENTRIES: usize = 10;
 /// Max number of points in history per each metric.
 const MAX_POINTS: usize = 1000;
 
+const GROUP_COLORS: [Color32; 3] = [
+    Color32::LIGHT_BLUE,
+    Color32::LIGHT_RED,
+    Color32::LIGHT_GREEN,
+];
+
 /// Packet inspector tab handler.
 #[derive(Debug, Default)]
 pub struct TelemetryTab {
@@ -69,12 +75,6 @@ impl TabViewer for TelemetryTab {
             let imu_metrics = app_cfg.imu.metrics;
             let payload_type = app_cfg.imu.payload_type;
 
-            let colors = [
-                Color32::LIGHT_BLUE,
-                Color32::LIGHT_RED,
-                Color32::LIGHT_GREEN,
-            ];
-
             let acc_indices = &[0, 1, 2];
 
             let gyr_indices = {
@@ -103,7 +103,7 @@ impl TabViewer for TelemetryTab {
                         "Accelerometer (m/s²)",
                         acc_indices,
                         &["Acc X", "Acc Y", "Acc Z"],
-                        &colors,
+                        &GROUP_COLORS,
                     );
                 }
 
@@ -114,7 +114,7 @@ impl TabViewer for TelemetryTab {
                         "Gyroscope (rad/s)",
                         gyr_indices,
                         &["Gyr X", "Gyr Y", "Gyr Z"],
-                        &colors,
+                        &GROUP_COLORS,
                     );
                 }
 
@@ -125,7 +125,7 @@ impl TabViewer for TelemetryTab {
                         "Magnetometer (µT)",
                         mag_indices,
                         &["Mag X", "Mag Y", "Mag Z"],
-                        &colors,
+                        &GROUP_COLORS,
                     );
                 }
 

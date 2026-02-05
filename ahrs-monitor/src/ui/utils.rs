@@ -7,7 +7,7 @@ use eframe::epaint::Color32;
 use egui::RichText;
 use egui_plot::{Corner, Legend, Line, Plot, PlotPoints};
 use std::collections::VecDeque;
-use tsilna_nav::protocol::idtp::{IdtpFrame, payload::*};
+use tsilna_nav::protocol::idtp::{IdtpFrame, payload::{PayloadType, Imu3Acc, AsMetricsArray, Imu3Gyr, Imu3Mag, Imu6, Imu9, Imu10, ImuQuat}};
 
 /// Display custom metric.
 ///
@@ -174,6 +174,7 @@ impl<const ENTRIES: usize, const POINTS: usize> Default
 /// # Parameters
 /// - `frame` - given IDTP frame to handle.
 /// - `payload_type` - given payload type to handle.
+#[must_use]
 pub fn extract_readings(
     frame: &IdtpFrame,
     payload_type: &PayloadType,
@@ -183,7 +184,11 @@ pub fn extract_readings(
         let mut res = [0.0; 10];
         let len = src.len().min(10);
 
-        res[..len].copy_from_slice(&src[..len]);
+        #[allow(clippy::indexing_slicing)]
+        {
+            res[..len].copy_from_slice(&src[..len]);
+        }
+
         res
     };
 
