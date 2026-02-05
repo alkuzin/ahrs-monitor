@@ -3,11 +3,11 @@
 
 //! Application handler related declarations.
 
-use crate::ui::DashboardTab;
 use crate::{
     config,
+    config::AppConfig,
     model::{AppEvent, FrameContext},
-    ui::{AppTab, InspectorTab, TabViewer},
+    ui::{AppTab, DashboardTab, InspectorTab, TabViewer},
 };
 use eframe::Frame;
 use egui::{
@@ -18,6 +18,8 @@ use tokio::sync::mpsc::Receiver;
 
 /// Application handler.
 pub struct App {
+    /// Given global config.
+    config: AppConfig,
     /// MPSC receiver handle.
     rx: Receiver<AppEvent>,
     /// List of application tabs.
@@ -61,13 +63,15 @@ impl App {
     /// Construct new `App` object.
     ///
     /// # Parameters
+    /// - `config` - given global config.
     /// - `rx` - given MPSC receiver handle.
     ///
     /// # Returns
     /// - New `App` object.
     #[must_use]
-    pub fn new(rx: Receiver<AppEvent>) -> Self {
+    pub fn new(config: AppConfig, rx: Receiver<AppEvent>) -> Self {
         Self {
+            config,
             rx,
             fps: 0.0,
             frame_counter: 0,
@@ -209,10 +213,26 @@ impl App {
         if let Some(tab) = self.tabs.get_mut(self.current_tab_idx)
             && let Some(frame_ctx) = &self.current_frame
         {
-            match tab {
-                AppTab::Dashboard(tab) => tab.ui(ui, frame_ctx),
-                AppTab::Telemetry(tab) => tab.ui(ui, frame_ctx),
-                AppTab::Inspector(tab) => tab.ui(ui, frame_ctx),
+            if self.config.imu.is_correct() {
+                match tab {
+                    AppTab::Dashboard(tab) => {
+                        tab.ui(ui, frame_ctx, &self.config)
+                    }
+                    AppTab::Telemetry(tab) => {
+                        tab.ui(ui, frame_ctx, &self.config)
+                    }
+                    AppTab::Inspector(tab) => {
+                        tab.ui(ui, frame_ctx, &self.config)
+                    }
+                }
+            } else {
+                ui.vertical_centered(|ui| {
+                    ui.add_space(ui.available_height() / 2.0 - 50.0);
+                    ui.add_space(10.0);
+
+                    let label_text = "UNSUPPORTED IMU PAYLOAD TYPE";
+                    ui.label(RichText::new(label_text).size(18.0));
+                });
             }
         } else {
             ui.vertical_centered(|ui| {
@@ -272,7 +292,9 @@ impl App {
                 .iter_mut()
                 .find(|tab| matches!(tab, AppTab::Telemetry(_)))
             {
-                tab.add_data(&frame_ctx);
+                if let Some(frame) = frame_ctx.frame {
+                    tab.add_data(&frame, &self.config.imu.payload_type());
+                }
             }
 
             if let Some(AppTab::Dashboard(tab)) = self

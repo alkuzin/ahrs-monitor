@@ -3,7 +3,10 @@
 
 //! IMU communication handler.
 
-use crate::{config::NetConfig, model::{AppEvent, FrameContext}};
+use crate::{
+    config::NetConfig,
+    model::{AppEvent, FrameContext},
+};
 use anyhow::anyhow;
 use std::ops::Range;
 use tokio::{net::UdpSocket, sync::mpsc::Sender, time};

@@ -22,19 +22,13 @@ pub mod core;
 pub mod model;
 pub mod ui;
 
-use crate::{
-    app::App,
-    config::{AppConfig, ImuMetrics},
-    core::Ingester,
-    model::AppEvent,
-};
+use crate::{app::App, config::AppConfig, core::Ingester, model::AppEvent};
 use chrono::Local;
 use eframe::{HardwareAcceleration, egui};
 use env_logger::Builder;
 use log::LevelFilter;
-use std::{env, fs, io::Write, process, sync::Once};
+use std::{env, io::Write, sync::Once};
 use tokio::sync::mpsc;
-use tsilna_nav::protocol::idtp::payload::PayloadType;
 
 /// Used in order to ensure that the initialization code runs only once.
 static INIT: Once = Once::new();
