@@ -1,0 +1,170 @@
+// SPDX-License-Identifier: Apache-2.0.
+// Copyright (C) 2026-present ahrs-monitor project and contributors.
+
+//! Utils for IMU simulator.
+
+use tsilna_nav::{math::rng::Xorshift, protocol::idtp::payload::*};
+use ahrs_monitor::config::ImuMetrics;
+use std::ops::Range;
+
+/// IDTP standard payload enumeration.
+pub enum IdtpStandardPayload {
+    /// Accelerometer only (for 3-axis sensor).
+    Imu3Acc(Imu3Acc),
+    /// Gyroscope only (for 3-axis sensor).
+    Imu3Gyr(Imu3Gyr),
+    /// Magnetometer only (for 3-axis sensor).
+    Imu3Mag(Imu3Mag),
+    /// Accelerometer + Gyroscope readings (for 6-axis sensor).
+    Imu6(Imu6),
+    /// Accelerometer + Gyroscope + Magnetometer readings
+    /// (for 9-axis sensor).
+    Imu9(Imu9),
+    /// Accelerometer + Gyroscope + Magnetometer + Barometer readings
+    /// (for 10-axis sensor).
+    Imu10(Imu10),
+    /// Attitude. Hamiltonian Quaternion (w, x, y, z).
+    ImuQuat(ImuQuat),
+}
+
+impl IdtpStandardPayload {
+    /// Convert payload to bytes.
+    ///
+    /// # Returns
+    /// - Bytes representation of payload.
+    pub fn to_bytes(&self) -> &[u8] {
+        match self {
+            IdtpStandardPayload::Imu3Acc(p) => p.to_bytes(),
+            IdtpStandardPayload::Imu3Gyr(p) => p.to_bytes(),
+            IdtpStandardPayload::Imu3Mag(p) => p.to_bytes(),
+            IdtpStandardPayload::Imu6(p) => p.to_bytes(),
+            IdtpStandardPayload::Imu9(p) => p.to_bytes(),
+            IdtpStandardPayload::Imu10(p) => p.to_bytes(),
+            IdtpStandardPayload::ImuQuat(p) => p.to_bytes(),
+        }
+    }
+
+    /// Get payload type.
+    ///
+    /// # Returns
+    /// - Payload type according to IDTP specification.
+    pub fn payload_type(&self) -> u8 {
+        match self {
+            IdtpStandardPayload::Imu3Acc(_) => Imu3Acc::TYPE_ID,
+            IdtpStandardPayload::Imu3Gyr(_) => Imu3Gyr::TYPE_ID,
+            IdtpStandardPayload::Imu3Mag(_) => Imu3Mag::TYPE_ID,
+            IdtpStandardPayload::Imu6(_) => Imu6::TYPE_ID,
+            IdtpStandardPayload::Imu9(_) => Imu9::TYPE_ID,
+            IdtpStandardPayload::Imu10(_) => Imu10::TYPE_ID,
+            IdtpStandardPayload::ImuQuat(_) => ImuQuat::TYPE_ID,
+        }
+    }
+}
+
+/// Pseudo-random accelerometer readings range.
+const RNG_ACC_RANGE: Range<f32> = -157.0..157.0; // +- 16g (m/s^2)
+
+/// Pseudo-random gyroscope readings range.
+const RNG_GYR_RANGE: Range<f32> = -35.0..35.0; // +-2000 DPS (rad/s).
+
+/// Pseudo-random magnetometer readings range.
+const RNG_MAG_RANGE: Range<f32> = -100.0..100.0; // (μT).
+
+/// Pseudo-random barometer readings range.
+const RNG_BARO_RANGE: Range<f32> = 90000.0..110000.0; // atm. (Pa)
+
+/// Pseudo-random quaternion values range.
+const RNG_QUAT_RANGE: Range<f32> = -1.0..1.0;
+
+/// Generate payload with pseudo-random IMU sensors readings.
+///
+/// # Parameters
+/// - `state` - given pseudo-random numbers generator initial state.
+/// - `payload_type` - given payload type to handle.
+/// - `imu_metrics` - given IMU metrics type to handle.
+///
+/// # Returns
+/// - New generated payload.
+pub fn generate_payload(
+    state: u32,
+    payload_type: &PayloadType,
+    imu_metrics: &ImuMetrics,
+) -> IdtpStandardPayload {
+    let mut rng = Xorshift::new(state);
+
+    // Generate random metric if enabled.
+    let mut generate = |enabled: bool, range: Range<f32>| -> f32 {
+        if enabled { rng.next_f32(range) } else { 0.0 }
+    };
+
+    match payload_type {
+        PayloadType::Imu3Acc => IdtpStandardPayload::Imu3Acc(Imu3Acc {
+            acc_x: generate(imu_metrics.acc, RNG_ACC_RANGE),
+            acc_y: generate(imu_metrics.acc, RNG_ACC_RANGE),
+            acc_z: generate(imu_metrics.acc, RNG_ACC_RANGE),
+        }),
+        PayloadType::Imu3Gyr => IdtpStandardPayload::Imu3Gyr(Imu3Gyr {
+            gyr_x: generate(imu_metrics.gyr, RNG_GYR_RANGE),
+            gyr_y: generate(imu_metrics.gyr, RNG_GYR_RANGE),
+            gyr_z: generate(imu_metrics.gyr, RNG_GYR_RANGE),
+        }),
+        PayloadType::Imu3Mag => IdtpStandardPayload::Imu3Mag(Imu3Mag {
+            mag_x: generate(imu_metrics.mag, RNG_MAG_RANGE),
+            mag_y: generate(imu_metrics.mag, RNG_MAG_RANGE),
+            mag_z: generate(imu_metrics.mag, RNG_MAG_RANGE),
+        }),
+        PayloadType::Imu6 => IdtpStandardPayload::Imu6(Imu6 {
+            acc: Imu3Acc {
+                acc_x: generate(imu_metrics.acc, RNG_ACC_RANGE),
+                acc_y: generate(imu_metrics.acc, RNG_ACC_RANGE),
+                acc_z: generate(imu_metrics.acc, RNG_ACC_RANGE),
+            },
+            gyr: Imu3Gyr {
+                gyr_x: generate(imu_metrics.gyr, RNG_GYR_RANGE),
+                gyr_y: generate(imu_metrics.gyr, RNG_GYR_RANGE),
+                gyr_z: generate(imu_metrics.gyr, RNG_GYR_RANGE),
+            },
+        }),
+        PayloadType::Imu9 => IdtpStandardPayload::Imu9(Imu9 {
+            acc: Imu3Acc {
+                acc_x: generate(imu_metrics.acc, RNG_ACC_RANGE),
+                acc_y: generate(imu_metrics.acc, RNG_ACC_RANGE),
+                acc_z: generate(imu_metrics.acc, RNG_ACC_RANGE),
+            },
+            gyr: Imu3Gyr {
+                gyr_x: generate(imu_metrics.gyr, RNG_GYR_RANGE),
+                gyr_y: generate(imu_metrics.gyr, RNG_GYR_RANGE),
+                gyr_z: generate(imu_metrics.gyr, RNG_GYR_RANGE),
+            },
+            mag: Imu3Mag {
+                mag_x: generate(imu_metrics.mag, RNG_MAG_RANGE),
+                mag_y: generate(imu_metrics.mag, RNG_MAG_RANGE),
+                mag_z: generate(imu_metrics.mag, RNG_MAG_RANGE),
+            },
+        }),
+        PayloadType::Imu10 => IdtpStandardPayload::Imu10(Imu10 {
+            acc: Imu3Acc {
+                acc_x: generate(imu_metrics.acc, RNG_ACC_RANGE),
+                acc_y: generate(imu_metrics.acc, RNG_ACC_RANGE),
+                acc_z: generate(imu_metrics.acc, RNG_ACC_RANGE),
+            },
+            gyr: Imu3Gyr {
+                gyr_x: generate(imu_metrics.gyr, RNG_GYR_RANGE),
+                gyr_y: generate(imu_metrics.gyr, RNG_GYR_RANGE),
+                gyr_z: generate(imu_metrics.gyr, RNG_GYR_RANGE),
+            },
+            mag: Imu3Mag {
+                mag_x: generate(imu_metrics.mag, RNG_MAG_RANGE),
+                mag_y: generate(imu_metrics.mag, RNG_MAG_RANGE),
+                mag_z: generate(imu_metrics.mag, RNG_MAG_RANGE),
+            },
+            baro: generate(imu_metrics.baro, RNG_BARO_RANGE),
+        }),
+        PayloadType::ImuQuat => IdtpStandardPayload::ImuQuat(ImuQuat {
+            w: generate(imu_metrics.quat, RNG_QUAT_RANGE),
+            x: generate(imu_metrics.quat, RNG_QUAT_RANGE),
+            y: generate(imu_metrics.quat, RNG_QUAT_RANGE),
+            z: generate(imu_metrics.quat, RNG_QUAT_RANGE),
+        }),
+    }
+}

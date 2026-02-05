@@ -8,7 +8,7 @@
 # IMU sample rate in Hz.
 sample_rate = 200.0
 # IDTP payload type.
-payload_type = 0x06
+payload_type = 0x03 # 0x03 - Imu6 (for MPU-6050).
 
 # Networks configurations.
 [net]

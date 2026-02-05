@@ -42,4 +42,4 @@ toml = "0.9"
 # Executable files section.
 [[bin]]
 name = "imu-simulator"
-path = "src/bin/imu_simulator.rs"
+path = "src/bin/imu_simulator/main.rs"
