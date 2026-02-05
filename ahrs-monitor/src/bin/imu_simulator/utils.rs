@@ -3,9 +3,9 @@
 
 //! Utils for IMU simulator.
 
-use tsilna_nav::{math::rng::Xorshift, protocol::idtp::payload::*};
 use ahrs_monitor::config::ImuMetrics;
 use std::ops::Range;
+use tsilna_nav::{math::rng::Xorshift, protocol::idtp::payload::*};
 
 /// IDTP standard payload enumeration.
 pub enum IdtpStandardPayload {

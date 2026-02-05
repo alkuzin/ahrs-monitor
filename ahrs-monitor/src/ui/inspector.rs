@@ -6,7 +6,10 @@
 use crate::{
     config::AppConfig,
     model::FrameContext,
-    ui::{TabViewer, utils::{display_metric, extract_readings}},
+    ui::{
+        TabViewer,
+        utils::{display_metric, extract_readings},
+    },
 };
 use eframe::epaint::Color32;
 use egui::{Layout, RichText};

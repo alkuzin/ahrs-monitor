@@ -3,11 +3,11 @@
 
 //! Utils for AHRS Monitor user interface.
 
-use tsilna_nav::protocol::idtp::{IdtpFrame, payload::*};
-use egui_plot::{Corner, Legend, Line, Plot, PlotPoints};
 use eframe::epaint::Color32;
 use egui::RichText;
+use egui_plot::{Corner, Legend, Line, Plot, PlotPoints};
 use std::collections::VecDeque;
+use tsilna_nav::protocol::idtp::{IdtpFrame, payload::*};
 
 /// Display custom metric.
 ///

@@ -6,7 +6,10 @@
 use crate::{
     config::AppConfig,
     model::FrameContext,
-    ui::{TabViewer, utils::{Plotter, extract_readings}},
+    ui::{
+        TabViewer,
+        utils::{Plotter, extract_readings},
+    },
 };
 use eframe::epaint::Color32;
 use tsilna_nav::protocol::idtp::{IdtpFrame, payload::PayloadType};

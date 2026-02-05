@@ -3,10 +3,13 @@
 
 //! IMU simulator implementation.
 
-use tsilna_nav::protocol::idtp::{IdtpFrame, IdtpHeader, IdtpMode};
-use ahrs_monitor::config::AppConfig;
-use tokio::{net::UdpSocket, time::{Duration, Instant}};
 use crate::utils::generate_payload;
+use ahrs_monitor::config::AppConfig;
+use tokio::{
+    net::UdpSocket,
+    time::{Duration, Instant},
+};
+use tsilna_nav::protocol::idtp::{IdtpFrame, IdtpHeader, IdtpMode};
 
 /// IMU simulator struct.
 pub struct ImuSimulator {
@@ -20,10 +23,10 @@ pub struct ImuSimulator {
 
 impl ImuSimulator {
     /// Construct new `ImuSimulator` object.
-    /// 
+    ///
     /// # Parameters
     /// - `cfg` - given application's configurations to handle.
-    /// 
+    ///
     /// # Returns
     /// - New `ImuSimulator` object.
     pub fn new(cfg: AppConfig) -> Self {
@@ -50,7 +53,7 @@ impl ImuSimulator {
     /// # Returns
     /// - `Ok` - in case of success.
     /// - `Err` - otherwise.
-    /// 
+    ///
     /// # Errors
     /// - I/O errors.
     pub async fn simulate_udp_transmission(&self) -> anyhow::Result<()> {
@@ -58,7 +61,7 @@ impl ImuSimulator {
 
         println!("Listening on {} (UDP)", self.simulator_addr);
         println!("Sending to AHRS Monitor: {} (UDP)", self.monitor_addr);
-        
+
         let mut sequence = 0u32;
         let mut buffer = vec![0u8; 64];
         let mut rng_state = 1;

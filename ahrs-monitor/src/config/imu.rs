@@ -38,8 +38,7 @@ impl ImuConfig {
     /// # Returns
     /// - Payload type according to IDTP specification.
     pub fn payload_type(&self) -> PayloadType {
-        PayloadType::try_from(self.payload_type)
-            .unwrap_or(PayloadType::Imu6)
+        PayloadType::try_from(self.payload_type).unwrap_or(PayloadType::Imu6)
     }
 }
 
