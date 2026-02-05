@@ -7,7 +7,13 @@ use eframe::epaint::Color32;
 use egui::RichText;
 use egui_plot::{Corner, Legend, Line, Plot, PlotPoints};
 use std::collections::VecDeque;
-use tsilna_nav::protocol::idtp::{IdtpFrame, payload::{PayloadType, Imu3Acc, AsMetricsArray, Imu3Gyr, Imu3Mag, Imu6, Imu9, Imu10, ImuQuat}};
+use tsilna_nav::protocol::idtp::{
+    IdtpFrame,
+    payload::{
+        AsMetricsArray, Imu3Acc, Imu3Gyr, Imu3Mag, Imu6, Imu9, Imu10, ImuQuat,
+        PayloadType,
+    },
+};
 
 /// Display custom metric.
 ///

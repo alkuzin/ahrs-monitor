@@ -4,8 +4,8 @@
 //! Utils for IMU simulator.
 
 use ahrs_monitor::{config::ImuMetrics, core::IdtpStandardPayload};
-use tsilna_nav::{math::rng::Xorshift, protocol::idtp::payload::*};
 use std::ops::Range;
+use tsilna_nav::{math::rng::Xorshift, protocol::idtp::payload::*};
 
 /// Pseudo-random accelerometer readings range.
 const RNG_ACC_RANGE: Range<f32> = -157.0..157.0; // +- 16g (m/s^2)

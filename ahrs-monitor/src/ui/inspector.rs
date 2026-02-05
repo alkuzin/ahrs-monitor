@@ -99,11 +99,14 @@ fn display_hex_dump_column(
     let crc = header.crc;
 
     let (mode_label, mode_color) = {
-        IdtpMode::try_from(payload_type).map_or(("Unknown", Color32::GRAY), |mode| match mode {
-            IdtpMode::Lite => ("IDTP-L", Color32::RED),
-            IdtpMode::Safety => ("IDTP-S (CRC-32)", Color32::LIGHT_BLUE),
-            IdtpMode::Secure => ("IDTP-SEC (HMAC-SHA256)", Color32::GREEN),
-        })
+        IdtpMode::try_from(payload_type).map_or(
+            ("Unknown", Color32::GRAY),
+            |mode| match mode {
+                IdtpMode::Lite => ("IDTP-L", Color32::RED),
+                IdtpMode::Safety => ("IDTP-S (CRC-32)", Color32::LIGHT_BLUE),
+                IdtpMode::Secure => ("IDTP-SEC (HMAC-SHA256)", Color32::GREEN),
+            },
+        )
     };
 
     let (valid_label, valid_color) = if frame_ctx.is_valid {

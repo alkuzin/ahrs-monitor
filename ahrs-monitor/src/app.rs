@@ -291,9 +291,10 @@ impl App {
                 .tabs
                 .iter_mut()
                 .find(|tab| matches!(tab, AppTab::Telemetry(_)))
-            && let Some(frame) = frame_ctx.frame {
-                    tab.add_data(&frame, &self.config.imu.payload_type());
-                }
+                && let Some(frame) = frame_ctx.frame
+            {
+                tab.add_data(&frame, &self.config.imu.payload_type());
+            }
 
             if let Some(AppTab::Dashboard(tab)) = self
                 .tabs
