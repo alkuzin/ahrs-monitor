@@ -4,11 +4,16 @@
 //! AHRS Monitor core main module.
 //! The core responsible for handling IDTP frames.
 
-mod ingester;
 pub mod attitude;
+mod ingester;
 
-use tsilna_nav::protocol::idtp::payload::{IdtpPayload, Imu10, Imu3Acc, Imu3Gyr, Imu3Mag, Imu6, Imu9, ImuQuat};
 pub use ingester::Ingester;
+use tsilna_nav::protocol::idtp::{
+    IdtpFrame,
+    payload::{
+        IdtpPayload, Imu3Acc, Imu3Gyr, Imu3Mag, Imu6, Imu9, Imu10, ImuQuat,
+    },
+};
 
 /// IDTP standard payload enumeration.
 pub enum IdtpStandardPayload {
@@ -60,6 +65,35 @@ impl IdtpStandardPayload {
             IdtpStandardPayload::Imu9(_) => Imu9::TYPE_ID,
             IdtpStandardPayload::Imu10(_) => Imu10::TYPE_ID,
             IdtpStandardPayload::ImuQuat(_) => ImuQuat::TYPE_ID,
+        }
+    }
+
+    /// Try to extract a standard payload from an IDTP frame.
+    ///
+    /// # Parameters
+    /// - `frame` - given IDTP frame to handle.
+    ///
+    /// # Returns
+    /// - Standard payload - in case of success.
+    /// - `None` - otherwise.
+    pub fn try_from_frame(frame: &IdtpFrame) -> Option<Self> {
+        match frame.header().payload_type {
+            Imu3Acc::TYPE_ID => {
+                frame.payload::<Imu3Acc>().ok().map(Self::Imu3Acc)
+            }
+            Imu3Gyr::TYPE_ID => {
+                frame.payload::<Imu3Gyr>().ok().map(Self::Imu3Gyr)
+            }
+            Imu3Mag::TYPE_ID => {
+                frame.payload::<Imu3Mag>().ok().map(Self::Imu3Mag)
+            }
+            Imu6::TYPE_ID => frame.payload::<Imu6>().ok().map(Self::Imu6),
+            Imu9::TYPE_ID => frame.payload::<Imu9>().ok().map(Self::Imu9),
+            Imu10::TYPE_ID => frame.payload::<Imu10>().ok().map(Self::Imu10),
+            ImuQuat::TYPE_ID => {
+                frame.payload::<ImuQuat>().ok().map(Self::ImuQuat)
+            }
+            _ => None,
         }
     }
 }
