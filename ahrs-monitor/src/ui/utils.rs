@@ -3,9 +3,10 @@
 
 //! Utils for AHRS Monitor user interface.
 
+use tsilna_nav::protocol::idtp::{IdtpFrame, payload::*};
+use egui_plot::{Corner, Legend, Line, Plot, PlotPoints};
 use eframe::epaint::Color32;
 use egui::RichText;
-use egui_plot::{Corner, Legend, Line, Plot, PlotPoints};
 use std::collections::VecDeque;
 
 /// Display custom metric.
@@ -166,4 +167,56 @@ impl<const ENTRIES: usize, const POINTS: usize> Default
             plot_height: None,
         }
     }
+}
+
+/// Extract IMU reading from payload.
+///
+/// # Parameters
+/// - `frame` - given IDTP frame to handle.
+/// - `payload_type` - given payload type to handle.
+pub fn extract_readings(
+    frame: &IdtpFrame,
+    payload_type: &PayloadType,
+) -> [f32; 10] {
+    // Add padding to IMU data.
+    let pad = |src: &[f32]| {
+        let mut res = [0.0; 10];
+        let len = src.len().min(10);
+
+        res[..len].copy_from_slice(&src[..len]);
+        res
+    };
+
+    let data: [f32; 10] = match payload_type {
+        PayloadType::Imu3Acc => frame
+            .payload::<Imu3Acc>()
+            .map(|p| pad(&p.to_array()))
+            .unwrap_or([0.0; 10]),
+        PayloadType::Imu3Gyr => frame
+            .payload::<Imu3Gyr>()
+            .map(|p| pad(&p.to_array()))
+            .unwrap_or([0.0; 10]),
+        PayloadType::Imu3Mag => frame
+            .payload::<Imu3Mag>()
+            .map(|p| pad(&p.to_array()))
+            .unwrap_or([0.0; 10]),
+        PayloadType::Imu6 => frame
+            .payload::<Imu6>()
+            .map(|p| pad(&p.to_array()))
+            .unwrap_or([0.0; 10]),
+        PayloadType::Imu9 => frame
+            .payload::<Imu9>()
+            .map(|p| pad(&p.to_array()))
+            .unwrap_or([0.0; 10]),
+        PayloadType::Imu10 => frame
+            .payload::<Imu10>()
+            .map(|p| pad(&p.to_array()))
+            .unwrap_or([0.0; 10]),
+        PayloadType::ImuQuat => frame
+            .payload::<ImuQuat>()
+            .map(|p| pad(&p.to_array()))
+            .unwrap_or([0.0; 10]),
+    };
+
+    data
 }
