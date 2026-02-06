@@ -6,6 +6,8 @@
 use tsilna_nav::protocol::idtp::payload::{Imu10, Imu3Acc, Imu3Gyr, Imu3Mag, Imu6, Imu9, ImuQuat};
 use chrono::Local;
 use serde::{Deserialize, Serialize};
+use std::{fs, path::PathBuf};
+use crate::config::AppConfig;
 
 #[derive(Debug, Default, Serialize, Deserialize)]
 /// IMU data log record.
@@ -135,7 +137,7 @@ impl ToLog for ImuQuat {
 /// IMU data log records handler.
 pub struct Logger {
     /// CSV file writer.
-    writer: csv::Writer<std::fs::File>,
+    writer: csv::Writer<fs::File>,
     /// Path to log file.
     path: String,
     /// Recording start timestamp.
@@ -145,6 +147,9 @@ pub struct Logger {
 impl Logger {
     /// Construct new `Logger` object.
     ///
+    /// # Parameters
+    /// - `cfg` - given application's config to handle.
+    ///
     /// # Returns
     /// - New `Logger` object - in case of success.
     /// - `Err` - otherwise.
@@ -152,15 +157,21 @@ impl Logger {
     /// # Errors
     /// - I/O errors.
     /// - Error to create log file.
-    pub fn new() -> std::io::Result<Self> {
-        // TODO: set specific logging directory.
+    pub fn new(cfg: &AppConfig) -> std::io::Result<Self> {
+        fs::create_dir_all(&cfg.log.directory)?;
+
         let now = Local::now();
-        let path = format!("log_{}.csv", now.format("%d-%m-%Y_%H-%M-%S"));
-        let file = std::fs::File::create(&path)?;
+        let filename = format!("log_{}.csv", now.format("%d-%m-%Y_%H-%M-%S"));
+
+        let mut path = PathBuf::from(&cfg.log.directory);
+        path.push(filename);
+
+        let path_str = path.to_string_lossy().into_owned();
+        let file = fs::File::create(&path)?;
 
         Ok(Self {
             writer: csv::Writer::from_writer(file),
-            path,
+            path: path_str,
             start_time: std::time::Instant::now(),
         })
     }

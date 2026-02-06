@@ -125,7 +125,7 @@ impl App {
         if self.logger.is_some() {
             self.logger = None;
         } else {
-            self.logger = Logger::new().ok();
+            self.logger = Logger::new(&self.config).ok();
         }
     }
 
