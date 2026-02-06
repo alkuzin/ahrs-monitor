@@ -21,6 +21,7 @@ pub mod config;
 pub mod core;
 pub mod model;
 pub mod ui;
+pub mod logger;
 
 use crate::{app::App, config::AppConfig, core::Ingester, model::AppEvent};
 use chrono::Local;
