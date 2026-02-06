@@ -40,15 +40,16 @@ impl IdtpStandardPayload {
     ///
     /// # Returns
     /// - Bytes representation of payload.
+    #[must_use]
     pub fn to_bytes(&self) -> &[u8] {
         match self {
-            IdtpStandardPayload::Imu3Acc(p) => p.to_bytes(),
-            IdtpStandardPayload::Imu3Gyr(p) => p.to_bytes(),
-            IdtpStandardPayload::Imu3Mag(p) => p.to_bytes(),
-            IdtpStandardPayload::Imu6(p) => p.to_bytes(),
-            IdtpStandardPayload::Imu9(p) => p.to_bytes(),
-            IdtpStandardPayload::Imu10(p) => p.to_bytes(),
-            IdtpStandardPayload::ImuQuat(p) => p.to_bytes(),
+            Self::Imu3Acc(p) => p.to_bytes(),
+            Self::Imu3Gyr(p) => p.to_bytes(),
+            Self::Imu3Mag(p) => p.to_bytes(),
+            Self::Imu6(p) => p.to_bytes(),
+            Self::Imu9(p) => p.to_bytes(),
+            Self::Imu10(p) => p.to_bytes(),
+            Self::ImuQuat(p) => p.to_bytes(),
         }
     }
 
@@ -56,15 +57,16 @@ impl IdtpStandardPayload {
     ///
     /// # Returns
     /// - Payload type according to IDTP specification.
-    pub fn payload_type(&self) -> u8 {
+    #[must_use]
+    pub const fn payload_type(&self) -> u8 {
         match self {
-            IdtpStandardPayload::Imu3Acc(_) => Imu3Acc::TYPE_ID,
-            IdtpStandardPayload::Imu3Gyr(_) => Imu3Gyr::TYPE_ID,
-            IdtpStandardPayload::Imu3Mag(_) => Imu3Mag::TYPE_ID,
-            IdtpStandardPayload::Imu6(_) => Imu6::TYPE_ID,
-            IdtpStandardPayload::Imu9(_) => Imu9::TYPE_ID,
-            IdtpStandardPayload::Imu10(_) => Imu10::TYPE_ID,
-            IdtpStandardPayload::ImuQuat(_) => ImuQuat::TYPE_ID,
+            Self::Imu3Acc(_) => Imu3Acc::TYPE_ID,
+            Self::Imu3Gyr(_) => Imu3Gyr::TYPE_ID,
+            Self::Imu3Mag(_) => Imu3Mag::TYPE_ID,
+            Self::Imu6(_) => Imu6::TYPE_ID,
+            Self::Imu9(_) => Imu9::TYPE_ID,
+            Self::Imu10(_) => Imu10::TYPE_ID,
+            Self::ImuQuat(_) => ImuQuat::TYPE_ID,
         }
     }
 

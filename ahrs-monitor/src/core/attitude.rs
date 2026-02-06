@@ -6,10 +6,14 @@
 use crate::core::IdtpStandardPayload;
 use fusion_ahrs::Ahrs;
 use tsilna_nav::{
-    math::{Quat32, na::{Vector3, Quaternion}},
+    math::{
+        Quat32,
+        na::{Quaternion, Vector3},
+    },
     protocol::idtp::IdtpFrame,
 };
 
+#[derive(Default)]
 /// AHRS attitude estimator wrapper.
 pub struct AttitudeEstimator {
     /// Complimentary filter handler.
@@ -21,6 +25,7 @@ impl AttitudeEstimator {
     ///
     /// # Returns
     /// - New `AttitudeEstimator` object.
+    #[must_use]
     pub fn new() -> Self {
         Self { ahrs: Ahrs::new() }
     }

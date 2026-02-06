@@ -3,11 +3,13 @@
 
 //! IMU data logger implementation.
 
-use tsilna_nav::protocol::idtp::payload::{Imu10, Imu3Acc, Imu3Gyr, Imu3Mag, Imu6, Imu9, ImuQuat};
+use crate::config::AppConfig;
 use chrono::Local;
 use serde::{Deserialize, Serialize};
 use std::{fs, path::PathBuf};
-use crate::config::AppConfig;
+use tsilna_nav::protocol::idtp::payload::{
+    Imu3Acc, Imu3Gyr, Imu3Mag, Imu6, Imu9, Imu10, ImuQuat,
+};
 
 #[derive(Debug, Default, Serialize, Deserialize)]
 /// IMU data log record.
@@ -177,7 +179,11 @@ impl Logger {
     }
 
     /// Get log file path.
-    pub fn path(&self) -> &String {
+    ///
+    /// # Returns
+    /// - Relative log file path.
+    #[must_use]
+    pub const fn path(&self) -> &String {
         &self.path
     }
 
@@ -204,6 +210,7 @@ impl Logger {
     ///
     /// # Returns
     /// - Timestamp in string representation.
+    #[must_use]
     pub fn timestamp_str(&self) -> String {
         let elapsed = self.start_time.elapsed();
         let secs = elapsed.as_secs();
@@ -211,6 +218,6 @@ impl Logger {
         let minutes = (secs / 60) % 60;
         let hours = secs / 3600;
 
-        format!("{:02}:{:02}:{:02}", hours, minutes, seconds)
+        format!("{hours:02}:{minutes:02}:{seconds:02}")
     }
 }

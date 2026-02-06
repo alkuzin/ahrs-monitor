@@ -6,10 +6,10 @@
 use crate::{
     config,
     config::AppConfig,
-    model::{AppEvent, FrameContext},
-    ui::{AppTab, DashboardTab, InspectorTab, TabViewer},
     core::IdtpStandardPayload,
     logger::{LogRecord, Logger, ToLog},
+    model::{AppEvent, FrameContext},
+    ui::{AppTab, DashboardTab, InspectorTab, TabViewer},
 };
 use eframe::Frame;
 use egui::{
@@ -172,17 +172,25 @@ impl App {
             Color32::from_gray(60)
         };
 
-        let text = if self.is_paused { "▶ Resume Stream" } else { "⏸ Pause Stream" };
+        let text = if self.is_paused {
+            "▶ Resume Stream"
+        } else {
+            "⏸ Pause Stream"
+        };
 
-        let btn = egui::Button::new(RichText::new(text).strong())
-            .fill(pause_color);
+        let btn =
+            egui::Button::new(RichText::new(text).strong()).fill(pause_color);
 
         if ui.add(btn).clicked() {
             self.is_paused = !self.is_paused;
         }
 
         if self.is_paused {
-            ui.label(RichText::new("(DISPLAY FROZEN)").color(Color32::YELLOW).small());
+            ui.label(
+                RichText::new("(DISPLAY FROZEN)")
+                    .color(Color32::YELLOW)
+                    .small(),
+            );
         }
     }
 
@@ -194,18 +202,18 @@ impl App {
         let is_logging = self.logger.is_some();
 
         let (btn_label, btn_color) = {
-            match &self.logger {
-                Some(logger) => {
+            self.logger.as_ref().map_or_else(
+                || ("⏺ Record".to_string(), Color32::from_gray(40)),
+                |logger| {
                     (format!("⏹ {}", logger.timestamp_str()), Color32::DARK_RED)
                 },
-                None => ("⏺ Record".to_string(), Color32::from_gray(40)),
-            }
+            )
         };
 
         let response = ui.add(egui::Button::new(btn_label).fill(btn_color));
 
         if response.clicked() {
-            self.toggle_logging()
+            self.toggle_logging();
         }
 
         let on_hover_text = if is_logging {
@@ -388,30 +396,43 @@ impl App {
         if let Some(frame) = frame_ctx.frame {
             let header = frame.header();
 
-            let (q_w, q_x, q_y, q_z, roll, pitch, yaw) = match frame_ctx.quaternion {
-                Some(quat) => {
+            let (q_w, q_x, q_y, q_z, roll, pitch, yaw) = frame_ctx
+                .quaternion
+                .map_or((1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0), |quat| {
                     let e = quat.euler_angles();
                     (quat.w, quat.i, quat.j, quat.k, e.0, e.1, e.2)
-                },
-                None => (1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0),
-            };
+                });
 
             let mut record = LogRecord {
                 timestamp: header.timestamp,
                 device_id: header.device_id,
-                q_w, q_x, q_y, q_z, roll, pitch, yaw,
+                q_w,
+                q_x,
+                q_y,
+                q_z,
+                roll,
+                pitch,
+                yaw,
                 ..LogRecord::default()
             };
 
             if let Some(payload) = IdtpStandardPayload::try_from_frame(&frame) {
                 match payload {
-                    IdtpStandardPayload::Imu3Acc(p) => p.fill_record(&mut record),
-                    IdtpStandardPayload::Imu3Gyr(p) => p.fill_record(&mut record),
-                    IdtpStandardPayload::Imu3Mag(p) => p.fill_record(&mut record),
+                    IdtpStandardPayload::Imu3Acc(p) => {
+                        p.fill_record(&mut record);
+                    }
+                    IdtpStandardPayload::Imu3Gyr(p) => {
+                        p.fill_record(&mut record);
+                    }
+                    IdtpStandardPayload::Imu3Mag(p) => {
+                        p.fill_record(&mut record);
+                    }
                     IdtpStandardPayload::Imu6(p) => p.fill_record(&mut record),
                     IdtpStandardPayload::Imu9(p) => p.fill_record(&mut record),
                     IdtpStandardPayload::Imu10(p) => p.fill_record(&mut record),
-                    IdtpStandardPayload::ImuQuat(p) => p.fill_record(&mut record),
+                    IdtpStandardPayload::ImuQuat(p) => {
+                        p.fill_record(&mut record);
+                    }
                 }
             }
 

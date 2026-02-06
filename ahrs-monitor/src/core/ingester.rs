@@ -88,14 +88,17 @@ impl Ingester {
 
                     let mut q: Option<Quat32> = None;
 
-                    let frame = if let Ok(frame) = IdtpFrame::try_from(raw_frame) {
+                    let frame = IdtpFrame::try_from(raw_frame).map_or_else(|_| {
+                        bad_packets += 1;
+                        None
+                    }, |frame| {
                         let header = frame.header();
 
                         let current_timestamp_us = header.timestamp;
                         let sequence = header.sequence;
 
                         // Calculating dt.
-                        let dt = if let Some(prev_us) = last_timestamp_us {
+                        let dt = last_timestamp_us.map_or(0.005, |prev_us| {
                             let diff = if current_timestamp_us >= prev_us {
                                 current_timestamp_us - prev_us
                             } else {
@@ -103,15 +106,19 @@ impl Ingester {
                                 (u32::MAX - prev_us).wrapping_add(current_timestamp_us)
                             };
 
-                            (diff as f32 / 1_000_000.0).clamp(0.0001, 0.1)
-                        } else {
-                            0.005 // 200 Hz default for the first packet.
-                        };
+                            #[allow(clippy::cast_precision_loss)]
+                            {
+                                (diff as f32 / 1_000_000.0).clamp(0.0001, 0.1)
+                            }
+                        });
 
                         // Updating the timestamp if the sequence is actually moving forward.
                         if sequence > prev_sequence || last_timestamp_us.is_none() {
                             last_timestamp_us = Some(current_timestamp_us);
-                            prev_sequence = sequence;
+                            #[allow(unused)]
+                            {
+                                prev_sequence = sequence;
+                            }
                         }
 
                         q = Some(
@@ -120,11 +127,7 @@ impl Ingester {
 
                         prev_sequence = sequence;
                         Some(frame)
-                    }
-                    else {
-                        bad_packets += 1;
-                        None
-                    };
+                    });
 
                     total_packets += 1;
                     packets_in_last_second += 1;

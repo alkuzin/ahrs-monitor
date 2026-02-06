@@ -3,7 +3,7 @@
 
 //! Application logging related configurations.
 
-use serde::{Serialize, Deserialize};
+use serde::{Deserialize, Serialize};
 
 app_config! {
     /// Logging configurations struct.
