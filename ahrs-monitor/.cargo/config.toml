@@ -12,3 +12,5 @@ RUST_LOG="info"
 monitor = "run --bin ahrs-monitor"
 # Alias for running IMU simulator.
 simulator = "run --bin imu-simulator"
+# Alias for running encryption keys generator.
+keygen = "run --bin keygen"

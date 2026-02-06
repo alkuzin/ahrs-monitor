@@ -42,8 +42,20 @@ toml = "0.9"
 fusion-ahrs = "0.3.0"
 # Fast and flexible CSV reader and writer, with support for serde.
 csv = "1.4"
+# Utilities for random number generation.
+rand = "0.9.2"
 
-# Executable files section.
+# Dependencies section during project building.
+[build-dependencies]
+# Utilities for random number generation.
+rand = "0.9.2"
+
+# IMU simulator executable file section.
 [[bin]]
 name = "imu-simulator"
 path = "src/bin/imu_simulator/main.rs"
+
+# Key generator executable file section.
+[[bin]]
+name = "keygen"
+path = "src/bin/keygen.rs"

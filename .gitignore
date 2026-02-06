@@ -5,8 +5,10 @@
 .idea/
 target/
 tmp/
+secrets/
 
 *.bin
 *.txt
 *.log
 *.csv
+*.key
