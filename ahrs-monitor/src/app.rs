@@ -8,6 +8,8 @@ use crate::{
     config::AppConfig,
     model::{AppEvent, FrameContext},
     ui::{AppTab, DashboardTab, InspectorTab, TabViewer},
+    core::IdtpStandardPayload,
+    logger::{LogRecord, Logger, ToLog},
 };
 use eframe::Frame;
 use egui::{
@@ -38,6 +40,8 @@ pub struct App {
     current_frame: Option<FrameContext>,
     /// Indicator whether UI is paused.
     is_paused: bool,
+    /// IMU data logger.
+    logger: Option<Logger>,
 }
 
 impl eframe::App for App {
@@ -85,6 +89,7 @@ impl App {
                 AppTab::Inspector(InspectorTab),
             ],
             current_tab_idx: 0,
+            logger: None,
         }
     }
 
@@ -115,6 +120,15 @@ impl App {
         }
     }
 
+    /// Enable/disable IMU data logging.
+    pub fn toggle_logging(&mut self) {
+        if self.logger.is_some() {
+            self.logger = None;
+        } else {
+            self.logger = Logger::new().ok();
+        }
+    }
+
     /// Display top panel.
     ///
     /// # Parameters
@@ -138,12 +152,69 @@ impl App {
         });
         ui.separator();
         ui.horizontal(|ui| {
-            ui.checkbox(&mut self.is_paused, "⏸ Pause Stream");
+            self.display_pause_button(ui);
+            self.display_record_button(ui);
 
-            if self.is_paused {
-                ui.label(RichText::new("(PAUSED)").color(Color32::YELLOW));
+            if self.logger.is_some() && self.is_paused {
+                ui.label("⚠ Warning: Interface paused, but logging is ACTIVE");
             }
         });
+    }
+
+    /// Display pause button.
+    ///
+    /// # Parameters
+    /// - `ui` - given screen UI handler.
+    fn display_pause_button(&mut self, ui: &mut egui::Ui) {
+        let pause_color = if self.is_paused {
+            Color32::from_rgb(255, 165, 0)
+        } else {
+            Color32::from_gray(60)
+        };
+
+        let text = if self.is_paused { "▶ Resume Stream" } else { "⏸ Pause Stream" };
+
+        let btn = egui::Button::new(RichText::new(text).strong())
+            .fill(pause_color);
+
+        if ui.add(btn).clicked() {
+            self.is_paused = !self.is_paused;
+        }
+
+        if self.is_paused {
+            ui.label(RichText::new("(DISPLAY FROZEN)").color(Color32::YELLOW).small());
+        }
+    }
+
+    /// Display record button.
+    ///
+    /// # Parameters
+    /// - `ui` - given screen UI handler.
+    fn display_record_button(&mut self, ui: &mut egui::Ui) {
+        let is_logging = self.logger.is_some();
+
+        let (btn_label, btn_color) = {
+            match &self.logger {
+                Some(logger) => {
+                    (format!("⏹ {}", logger.timestamp_str()), Color32::DARK_RED)
+                },
+                None => ("⏺ Record".to_string(), Color32::from_gray(40)),
+            }
+        };
+
+        let response = ui.add(egui::Button::new(btn_label).fill(btn_color));
+
+        if response.clicked() {
+            self.toggle_logging()
+        }
+
+        let on_hover_text = if is_logging {
+            "Stop Recording"
+        } else {
+            "Start Recording"
+        };
+
+        response.on_hover_text(on_hover_text);
     }
 
     /// Display central panel.
@@ -304,7 +375,49 @@ impl App {
                 tab.add_data(&frame_ctx);
             }
 
+            self.write_record(&frame_ctx);
             self.current_frame = Some(*frame_ctx);
+        }
+    }
+
+    /// Write record into file.
+    ///
+    /// # Parameters
+    /// - `frame_ctx` - given current frame context info.
+    fn write_record(&mut self, frame_ctx: &FrameContext) {
+        if let Some(frame) = frame_ctx.frame {
+            let header = frame.header();
+
+            let (q_w, q_x, q_y, q_z, roll, pitch, yaw) = match frame_ctx.quaternion {
+                Some(quat) => {
+                    let e = quat.euler_angles();
+                    (quat.w, quat.i, quat.j, quat.k, e.0, e.1, e.2)
+                },
+                None => (1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0),
+            };
+
+            let mut record = LogRecord {
+                timestamp: header.timestamp,
+                device_id: header.device_id,
+                q_w, q_x, q_y, q_z, roll, pitch, yaw,
+                ..LogRecord::default()
+            };
+
+            if let Some(payload) = IdtpStandardPayload::try_from_frame(&frame) {
+                match payload {
+                    IdtpStandardPayload::Imu3Acc(p) => p.fill_record(&mut record),
+                    IdtpStandardPayload::Imu3Gyr(p) => p.fill_record(&mut record),
+                    IdtpStandardPayload::Imu3Mag(p) => p.fill_record(&mut record),
+                    IdtpStandardPayload::Imu6(p) => p.fill_record(&mut record),
+                    IdtpStandardPayload::Imu9(p) => p.fill_record(&mut record),
+                    IdtpStandardPayload::Imu10(p) => p.fill_record(&mut record),
+                    IdtpStandardPayload::ImuQuat(p) => p.fill_record(&mut record),
+                }
+            }
+
+            if let Some(logger) = &mut self.logger {
+                logger.write(&record).ok();
+            }
         }
     }
 }
