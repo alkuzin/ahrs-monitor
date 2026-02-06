@@ -88,7 +88,7 @@ pub fn run() -> eframe::Result {
 
     // Spawning a new asynchronous task for handling IDTP frames.
     tokio::spawn(async move {
-        let mut ingester = Ingester::new(tx, app_config_clone.net);
+        let mut ingester = Ingester::new(tx, app_config_clone);
 
         if let Err(e) = ingester.run().await {
             log::error!("Core service failed: {e:?}");
