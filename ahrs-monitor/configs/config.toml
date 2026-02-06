@@ -20,3 +20,8 @@ udp_port = 10000
 simulator_ip_address = "127.0.0.1"
 # Simulator's UDP port.
 simulator_udp_port = 10001
+
+# Logging configurations.
+[log]
+# Directory where logs are stored.
+directory = "..\\logs"

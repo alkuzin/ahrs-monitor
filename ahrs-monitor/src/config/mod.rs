@@ -5,13 +5,14 @@
 
 mod imu;
 mod net;
+mod logging;
 
-use crate::app_config;
 pub use imu::*;
 pub use net::*;
 use serde::{Deserialize, Serialize};
 use std::{fs, process};
 use tsilna_nav::protocol::idtp::payload::PayloadType;
+use crate::{app_config, config::logging::LoggingConfig};
 
 /// Window width in pixels.
 pub const APP_WINDOW_WIDTH: f32 = 1024.0;
@@ -44,6 +45,8 @@ app_config! {
         pub imu: ImuConfig,
         /// Networks configurations.
         pub net: NetConfig,
+        /// Logging configurations.
+        pub log: LoggingConfig,
     }
 }
 
