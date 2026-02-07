@@ -3,25 +3,14 @@
 
 //! IMU communication handler.
 
-use crate::{
-    config::AppConfig,
-    core::attitude::{AttitudeEstimator, estimate_attitude},
-    model::{AppEvent, FrameContext},
-};
+use aes_gcm::{Aes128Gcm, Key, KeyInit, aead::{Aead, Nonce}};
+use crate::{config::{self, AppConfig}, core::attitude::{AttitudeEstimator, estimate_attitude}, model::{AppEvent, FrameContext}};
 use anyhow::anyhow;
 use tokio::{net::UdpSocket, sync::mpsc::Sender, time};
 use tsilna_nav::{
     math::Quat32,
     protocol::idtp::{IDTP_FRAME_MAX_SIZE, IdtpFrame, IdtpMode},
 };
-
-// TODO: security icon in case of encrypted communication.
-
-/// AES-128 encryption key.
-const AES_KEY: &[u8; 16] = include_bytes!("../../configs/secrets/aes.key");
-
-/// HMAC-SHA256 key.
-const HMAC_KEY: &[u8; 32] = include_bytes!("../../configs/secrets/hmac.key");
 
 /// Mediator between AHRS monitor and IMU.
 pub struct Ingester {
@@ -37,6 +26,8 @@ pub struct Ingester {
     last_timestamp_us: Option<u32>,
     /// Orientation estimator.
     estimator: AttitudeEstimator,
+    /// AES-GCM with a 128-bit key.
+    aes_cipher: Option<Aes128Gcm>,
 }
 
 impl Ingester {
@@ -50,6 +41,16 @@ impl Ingester {
     /// - New `Ingester` object.
     #[must_use]
     pub fn new(tx: Sender<AppEvent>, cfg: AppConfig) -> Self {
+        let aes_cipher = if cfg.net.use_encryption {
+            let aes_key = Key::<Aes128Gcm>::from_slice(config::AES_KEY);
+            let aes_cipher = Aes128Gcm::new(aes_key);
+
+            Some(aes_cipher)
+        }
+        else {
+            None
+        };
+
         Self {
             tx,
             cfg,
@@ -57,6 +58,7 @@ impl Ingester {
             prev_sequence: 0,
             last_timestamp_us: None,
             estimator: AttitudeEstimator::new(),
+            aes_cipher,
         }
     }
 
@@ -107,7 +109,8 @@ impl Ingester {
                     let mut quaternion = None;
                     let mut frame_opt = None;
 
-                    if let Some(frame) = Self::validate_frame(raw_frame) {
+                    let raw_frame = if let Some(decrypted_frame) = self.decrypt_frame(raw_frame)
+                    && let Some(frame) = Self::validate_frame(&decrypted_frame) {
                         quaternion = Some(self.estimate_attitude(&frame));
                         frame_opt = Some(frame);
                         is_valid = true;
@@ -115,9 +118,11 @@ impl Ingester {
                         let header = frame.header();
                         self.prev_sequence = header.sequence;
                         self.last_timestamp_us = Some(header.timestamp);
+                        decrypted_frame.to_vec()
                     } else {
                         self.bad_packets += 1;
-                    }
+                        raw_frame.to_vec()
+                    };
 
                     let frame_ctx = FrameContext {
                         frame: frame_opt,
@@ -125,7 +130,7 @@ impl Ingester {
                         bad_packets: self.bad_packets,
                         pps: current_pps,
                         is_valid,
-                        raw_frame: raw_frame.to_vec(),
+                        raw_frame,
                         quaternion,
                     };
 
@@ -151,11 +156,11 @@ impl Ingester {
     /// - `None` - otherwise.
     fn validate_frame(raw_frame: &[u8]) -> Option<IdtpFrame> {
         let frame = IdtpFrame::try_from(raw_frame).ok()?;
-
         let header = frame.header();
         let mode = header.mode;
+
         let hmac_key = if mode == u8::from(IdtpMode::Secure) {
-            Some(HMAC_KEY.as_ref())
+            Some(config::HMAC_KEY.as_ref())
         } else {
             None
         };
@@ -194,5 +199,33 @@ impl Ingester {
         });
 
         estimate_attitude(&mut self.estimator, frame, dt)
+    }
+
+    /// Decrypt frame if encryption mode is enabled.
+    ///
+    /// # Parameters
+    /// - `buffer` - given raw packet bytes to handle.
+    ///
+    /// # Returns
+    /// - Decrypted frame - if encryption mode is enabled.
+    /// - Same IDTP frame bytes - otherwise.
+    /// - `None` - in case of failure.
+    fn decrypt_frame(&self, buffer: &[u8]) -> Option<Vec<u8>> {
+        if let Some(aes_cipher) = &self.aes_cipher {
+            // Packet structure [Nonce (IV) 12 bytes][Encrypted IDTP frame].
+            if buffer.len() < 12 {
+                return None;
+            }
+
+            let (iv, ciphertext) = buffer.split_at(12);
+            let iv = Nonce::<Aes128Gcm>::from_slice(iv);
+
+            match aes_cipher.decrypt(iv, ciphertext) {
+                Ok(plaintext) => Some(plaintext),
+                Err(_) => None,
+            }
+        } else {
+            Some(buffer.to_vec())
+        }
     }
 }
