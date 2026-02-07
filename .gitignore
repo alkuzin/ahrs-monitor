@@ -6,6 +6,7 @@
 target/
 tmp/
 secrets/
+firmware/
 
 *.bin
 *.txt

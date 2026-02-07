@@ -5,7 +5,7 @@ use rand::RngCore;
 use std::{fs, path::Path};
 
 fn main() {
-    let secrets_dir = Path::new("configs/secrets");
+    let secrets_dir = Path::new("configs/firmware/secrets");
     let aes_path = secrets_dir.join("aes.key");
     let hmac_path = secrets_dir.join("hmac.key");
 
