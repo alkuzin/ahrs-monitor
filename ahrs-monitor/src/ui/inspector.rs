@@ -97,9 +97,10 @@ fn display_hex_dump_column(
     let version = format!("v{version_major}.{version_minor}");
     let payload_type = header.payload_type;
     let crc = header.crc;
+    let mode = header.mode;
 
     let (mode_label, mode_color) = {
-        IdtpMode::try_from(payload_type).map_or(
+        IdtpMode::try_from(mode).map_or(
             ("Unknown", Color32::GRAY),
             |mode| match mode {
                 IdtpMode::Lite => ("IDTP-L", Color32::RED),
