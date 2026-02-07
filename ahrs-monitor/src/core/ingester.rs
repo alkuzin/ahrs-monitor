@@ -3,8 +3,15 @@
 
 //! IMU communication handler.
 
-use aes_gcm::{Aes128Gcm, Key, KeyInit, aead::{Aead, Nonce}};
-use crate::{config::{self, AppConfig}, core::attitude::{AttitudeEstimator, estimate_attitude}, model::{AppEvent, FrameContext}};
+use crate::{
+    config::{self, AppConfig},
+    core::attitude::{AttitudeEstimator, estimate_attitude},
+    model::{AppEvent, FrameContext},
+};
+use aes_gcm::{
+    Aes128Gcm, Key, KeyInit,
+    aead::{Aead, Nonce},
+};
 use anyhow::anyhow;
 use tokio::{net::UdpSocket, sync::mpsc::Sender, time};
 use tsilna_nav::{
@@ -46,8 +53,7 @@ impl Ingester {
             let aes_cipher = Aes128Gcm::new(aes_key);
 
             Some(aes_cipher)
-        }
-        else {
+        } else {
             None
         };
 
@@ -118,7 +124,7 @@ impl Ingester {
                         let header = frame.header();
                         self.prev_sequence = header.sequence;
                         self.last_timestamp_us = Some(header.timestamp);
-                        decrypted_frame.to_vec()
+                        decrypted_frame.clone()
                     } else {
                         self.bad_packets += 1;
                         raw_frame.to_vec()
@@ -220,10 +226,7 @@ impl Ingester {
             let (iv, ciphertext) = buffer.split_at(12);
             let iv = Nonce::<Aes128Gcm>::from_slice(iv);
 
-            match aes_cipher.decrypt(iv, ciphertext) {
-                Ok(plaintext) => Some(plaintext),
-                Err(_) => None,
-            }
+            aes_cipher.decrypt(iv, ciphertext).ok()
         } else {
             Some(buffer.to_vec())
         }

@@ -378,26 +378,25 @@ impl App {
         }
 
         if !self.is_paused {
-            if let Some(frame) = frame_ctx.frame {
-                if let Some(AppTab::Telemetry(tab)) = self
+            if let Some(frame) = frame_ctx.frame
+                && let Some(AppTab::Telemetry(tab)) = self
                     .tabs
                     .iter_mut()
                     .find(|tab| matches!(tab, AppTab::Telemetry(_)))
-                {
-                    tab.add_data(&frame, &self.config.imu.payload_type());
-                }
-
-                if let Some(AppTab::Dashboard(tab)) = self
-                    .tabs
-                    .iter_mut()
-                    .find(|tab| matches!(tab, AppTab::Dashboard(_)))
-                {
-                    tab.add_data(&frame_ctx);
-                }
-
-                self.write_record(&frame_ctx);
-                self.current_frame = Some(*frame_ctx);
+            {
+                tab.add_data(&frame, &self.config.imu.payload_type());
             }
+
+            if let Some(AppTab::Dashboard(tab)) = self
+                .tabs
+                .iter_mut()
+                .find(|tab| matches!(tab, AppTab::Dashboard(_)))
+            {
+                tab.add_data(&frame_ctx);
+            }
+
+            self.write_record(&frame_ctx);
+            self.current_frame = Some(*frame_ctx);
         }
     }
 

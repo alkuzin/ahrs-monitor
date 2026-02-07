@@ -3,8 +3,8 @@
 
 //! IMU simulator implementation.
 
-use aes_gcm::{Aes128Gcm, Key, KeyInit, aead::Aead};
 use crate::utils::generate_payload;
+use aes_gcm::{Aes128Gcm, Key, KeyInit, aead::Aead};
 use ahrs_monitor::config::{self, AppConfig};
 use tokio::{
     net::UdpSocket,
@@ -49,8 +49,7 @@ impl ImuSimulator {
             let aes_cipher = Aes128Gcm::new(aes_key);
 
             Some(aes_cipher)
-        }
-        else {
+        } else {
             None
         };
 
@@ -138,12 +137,10 @@ impl ImuSimulator {
                 data.extend_from_slice(&iv);
                 data.extend(frame);
                 data
-            }
-            else {
+            } else {
                 buffer.to_vec()
             }
-        }
-        else {
+        } else {
             buffer.to_vec()
         }
     }
