@@ -244,6 +244,7 @@ impl App {
     /// - `ctx` - given egui context to handle.
     fn display_bottom_panel(&mut self, ui: &mut egui::Ui, ctx: &Context) {
         ui.horizontal(|ui| {
+            // Connection status label.
             let connection_label = if self.connection_status {
                 RichText::new("CONNECTED").color(Color32::GREEN)
             } else {
@@ -253,6 +254,17 @@ impl App {
             ui.label(connection_label);
             ui.separator();
 
+            // Encryption status label.
+            let encryption_label = if self.config.net.use_encryption {
+                RichText::new("🔒 ENCRYPTED").color(Color32::LIGHT_GREEN)
+            } else {
+                RichText::new("🔓 UNENCRYPTED").color(Color32::YELLOW)
+            };
+
+            ui.label(encryption_label);
+            ui.separator();
+
+            // Received packets info label.
             if let Some(frame_ctx) = &self.current_frame {
                 ui.label(format!("Total packets: {}", frame_ctx.total_packets));
                 ui.separator();
@@ -366,25 +378,26 @@ impl App {
         }
 
         if !self.is_paused {
-            if let Some(AppTab::Telemetry(tab)) = self
-                .tabs
-                .iter_mut()
-                .find(|tab| matches!(tab, AppTab::Telemetry(_)))
-                && let Some(frame) = frame_ctx.frame
-            {
-                tab.add_data(&frame, &self.config.imu.payload_type());
-            }
+            if let Some(frame) = frame_ctx.frame {
+                if let Some(AppTab::Telemetry(tab)) = self
+                    .tabs
+                    .iter_mut()
+                    .find(|tab| matches!(tab, AppTab::Telemetry(_)))
+                {
+                    tab.add_data(&frame, &self.config.imu.payload_type());
+                }
 
-            if let Some(AppTab::Dashboard(tab)) = self
-                .tabs
-                .iter_mut()
-                .find(|tab| matches!(tab, AppTab::Dashboard(_)))
-            {
-                tab.add_data(&frame_ctx);
-            }
+                if let Some(AppTab::Dashboard(tab)) = self
+                    .tabs
+                    .iter_mut()
+                    .find(|tab| matches!(tab, AppTab::Dashboard(_)))
+                {
+                    tab.add_data(&frame_ctx);
+                }
 
-            self.write_record(&frame_ctx);
-            self.current_frame = Some(*frame_ctx);
+                self.write_record(&frame_ctx);
+                self.current_frame = Some(*frame_ctx);
+            }
         }
     }
 
