@@ -19,6 +19,10 @@ app_config! {
         #[serde(skip)]
         /// Info about IMU metrics in IDTP payload.
         pub metrics: ImuMetrics,
+        /// IMU device identifier.
+        pub device_id: u16,
+        /// IDTP protocol mode.
+        pub idtp_mode: u8,
     }
 }
 
