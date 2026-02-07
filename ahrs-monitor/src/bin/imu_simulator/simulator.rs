@@ -3,8 +3,9 @@
 
 //! IMU simulator implementation.
 
+use aes_gcm::{Aes128Gcm, Key, KeyInit, aead::Aead};
 use crate::utils::generate_payload;
-use ahrs_monitor::config::AppConfig;
+use ahrs_monitor::config::{self, AppConfig};
 use tokio::{
     net::UdpSocket,
     time::{Duration, Instant},
@@ -19,6 +20,8 @@ pub struct ImuSimulator {
     simulator_addr: String,
     /// AHRS Monitor's IP address.
     monitor_addr: String,
+    /// AES-GCM with a 128-bit key.
+    aes_cipher: Option<Aes128Gcm>,
 }
 
 impl ImuSimulator {
@@ -41,10 +44,21 @@ impl ImuSimulator {
         let monitor_addr =
             format!("{}:{}", net_cfg.ip_address.clone(), net_cfg.udp_port);
 
+        let aes_cipher = if net_cfg.use_encryption {
+            let aes_key = Key::<Aes128Gcm>::from_slice(config::AES_KEY);
+            let aes_cipher = Aes128Gcm::new(aes_key);
+
+            Some(aes_cipher)
+        }
+        else {
+            None
+        };
+
         Self {
             cfg,
             simulator_addr,
             monitor_addr,
+            aes_cipher,
         }
     }
 
@@ -90,7 +104,9 @@ impl ImuSimulator {
 
             let frame_size = frame.size();
             let _ = frame.pack(&mut buffer[..frame_size], None);
-            socket.send_to(&buffer, &self.monitor_addr).await?;
+
+            let raw_frame = self.encrypt_frame(&buffer);
+            socket.send_to(&raw_frame, &self.monitor_addr).await?;
 
             sequence += 1;
 
@@ -100,6 +116,35 @@ impl ImuSimulator {
 
             tokio::time::sleep(delay_time).await;
             rng_state += 1;
+        }
+    }
+
+    /// Encrypt frame if encryption mode is enabled.
+    ///
+    /// # Parameters
+    /// - `buffer` - given raw IDTP frame bytes to handle.
+    ///
+    /// # Returns
+    /// - Encrypted frame - if encryption mode is enabled.
+    /// - Same IDTP frame bytes - otherwise.
+    fn encrypt_frame(&self, buffer: &[u8]) -> Vec<u8> {
+        if let Some(aes_cipher) = &self.aes_cipher {
+            let iv = rand::random::<[u8; 12]>();
+            let encrypted_frame = aes_cipher.encrypt(&iv.into(), buffer).ok();
+
+            if let Some(frame) = encrypted_frame {
+                // Packet structure [Nonce (IV) 12 bytes][Encrypted IDTP frame].
+                let mut data = Vec::with_capacity(12 + frame.len());
+                data.extend_from_slice(&iv);
+                data.extend(frame);
+                data
+            }
+            else {
+                buffer.to_vec()
+            }
+        }
+        else {
+            buffer.to_vec()
         }
     }
 }
