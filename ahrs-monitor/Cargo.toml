@@ -4,7 +4,7 @@
 # Project package info section.
 [package]
 name        = "ahrs-monitor"
-version     = "0.1.0"
+version     = "1.0.0"
 description = "AHRS cross-platform telemetry station"
 authors     = ["Alexander <alkuzindev@gmail.com>"]
 repository  = "https://github.com/alkuzin/ahrs-monitor"
