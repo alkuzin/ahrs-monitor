@@ -16,5 +16,7 @@ app_config! {
         pub simulator_ip_address: String,
         /// Simulator's UDP port.
         pub simulator_udp_port: u16,
+        /// Flag whether to use encryption for IMU data transmission.
+        pub use_encryption: bool,
     }
 }

@@ -38,6 +38,12 @@ pub const MPSC_CHANNEL_BUFFER_SIZE: usize = 128;
 /// AHRS Monitor configuration file path.
 pub const CONFIG_FILE_PATH: &str = "configs/config.toml";
 
+/// AES-128 encryption key.
+pub const AES_KEY: &[u8; 16] = include_bytes!("../../configs/secrets/aes.key");
+
+/// HMAC-SHA256 key.
+pub const HMAC_KEY: &[u8; 32] = include_bytes!("../../configs/secrets/hmac.key");
+
 app_config! {
     /// Application's configurations struct.
     pub struct AppConfig {
