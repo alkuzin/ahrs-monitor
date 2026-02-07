@@ -54,7 +54,7 @@ fn generate_config() {
 pub const USE_ENCRYPTION: bool = {};
 
 /// AHRS Monitor ingester's IP address.
-pub const IP_ADDR: &str = {};
+pub const IP_ADDR: &str = "{}";
 
 /// AHRS Monitor ingester's IP address.
 pub const UDP_PORT: u16 = {};
