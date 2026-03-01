@@ -38,7 +38,7 @@ static INIT: Once = Once::new();
 ///
 /// # Parameters
 /// - `filter` - given logger verbosity level filter to set.
-fn init_logging(filter: LevelFilter) {
+pub fn init_logging(filter: LevelFilter) {
     INIT.call_once(|| {
         let mut builder = Builder::new();
 

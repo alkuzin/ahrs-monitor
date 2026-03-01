@@ -110,10 +110,10 @@ impl DashboardTab {
     /// Append attitude metrics to the points history.
     ///
     /// # Parameters
-    /// - `frame_ctx` - given current frame context to handle.
-    pub fn add_data(&mut self, frame_ctx: &FrameContext) {
-        if let Some(quaternion) = frame_ctx.quaternion {
-            let attitude = Euler32::from_quaternion(quaternion);
+    /// - `quaternion` - given quaternion to handle.
+    pub fn add_data(&mut self, quaternion: &Option<Quat32>) {
+        if let Some(q) = quaternion {
+            let attitude = Euler32::from_quaternion(*q);
 
             let data: [f32; HISTORY_ENTRIES] =
                 [attitude.roll, attitude.pitch, attitude.yaw];

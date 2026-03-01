@@ -3,14 +3,13 @@
 
 //! Attitude estimation related declarations.
 
-use crate::core::IdtpStandardPayload;
+use crate::core::StandardPayload;
 use fusion_ahrs::Ahrs;
 use tsilna_nav::{
     math::{
         Quat32,
         na::{Quaternion, Vector3},
     },
-    protocol::idtp::IdtpFrame,
 };
 
 #[derive(Default)]
@@ -73,70 +72,71 @@ impl AttitudeEstimator {
     }
 }
 
-// Earth's standard gravity in meters per second squared.
-const GRAVITY: f32 = 9.80665;
-
-// Conversion factor from radians to degrees.
-const RAD_TO_DEG: f32 = 180.0 / std::f32::consts::PI;
-
 /// Estimate attitude based on IMU readings.
 ///
 /// # Parameters
 /// - `estimator` - given attitude estimator.
-/// - `frame` - given IDTP frame to handle.
+// - `frame` - given IDTP frame to handle. TODO:
 /// - `dt` - given time step since last update in seconds (sec).
 ///
 /// # Returns
 /// - Attitude in quaternion representation.
 pub fn estimate_attitude(
     estimator: &mut AttitudeEstimator,
-    frame: &IdtpFrame,
+    payload: &Option<StandardPayload>,
     dt: f32,
 ) -> Quat32 {
-    match IdtpStandardPayload::try_from_frame(frame) {
+    match payload {
         // IMU 6-axis (Acc + Gyr).
-        Some(IdtpStandardPayload::Imu6(p)) => {
+        Some(StandardPayload::Imu6(p)) => {
             let (acc, gyr) = (p.acc, p.gyr);
 
             let acc = Vector3::new(
-                acc.acc_x / GRAVITY,
-                acc.acc_y / GRAVITY,
-                acc.acc_z / GRAVITY,
+                acc.acc_x.get(),
+                acc.acc_y.get(),
+                acc.acc_z.get(),
             );
 
             let gyr = Vector3::new(
-                gyr.gyr_x * RAD_TO_DEG,
-                gyr.gyr_y * RAD_TO_DEG,
-                gyr.gyr_z * RAD_TO_DEG,
+                gyr.gyr_x.get(),
+                gyr.gyr_y.get(),
+                gyr.gyr_z.get(),
             );
 
             estimator.estimate_imu(acc, gyr, dt)
         }
 
         // MARG 9-axis (Acc + Gyr + Mag).
-        Some(IdtpStandardPayload::Imu9(p)) => {
+        Some(StandardPayload::Imu9(p)) => {
             let (acc, gyr, mag) = (p.acc, p.gyr, p.mag);
 
             let acc = Vector3::new(
-                acc.acc_x / GRAVITY,
-                acc.acc_y / GRAVITY,
-                acc.acc_z / GRAVITY,
+                acc.acc_x.get(),
+                acc.acc_y.get(),
+                acc.acc_z.get(),
             );
 
             let gyr = Vector3::new(
-                gyr.gyr_x * RAD_TO_DEG,
-                gyr.gyr_y * RAD_TO_DEG,
-                gyr.gyr_z * RAD_TO_DEG,
+                gyr.gyr_x.get(),
+                gyr.gyr_y.get(),
+                gyr.gyr_z.get(),
             );
 
-            // Mag is already in µT, so no conversion needed.
-            let mag = Vector3::new(mag.mag_x, mag.mag_y, mag.mag_z);
+            let mag = Vector3::new(
+                mag.mag_x.get(),
+                mag.mag_y.get(),
+                mag.mag_z.get()
+            );
 
             estimator.estimate_marg(acc, gyr, mag, dt)
         }
 
-        Some(IdtpStandardPayload::ImuQuat(p)) => {
-            Quat32::from_quaternion(Quaternion::new(p.w, p.x, p.y, p.z))
+        Some(StandardPayload::ImuQuat(p)) => {
+            Quat32::from_quaternion(
+                Quaternion::new(
+                    p.w.get(), p.x.get(), p.y.get(), p.z.get()
+                )
+            )
         }
 
         _ => estimator.ahrs.quaternion(),

@@ -7,7 +7,7 @@ use crate::config::AppConfig;
 use chrono::Local;
 use serde::{Deserialize, Serialize};
 use std::{fs, path::PathBuf};
-use tsilna_nav::protocol::idtp::payload::{
+use indtp::payload::{
     Imu3Acc, Imu3Gyr, Imu3Mag, Imu6, Imu9, Imu10, ImuQuat,
 };
 
@@ -17,7 +17,7 @@ pub struct LogRecord {
     /// Timestamp represents the sensor-local time.
     pub timestamp: u32,
     /// Vendor-specific unique IMU device identifier.
-    pub device_id: u16,
+    pub device_id: u8,
     /// Accelerometer reading along X-axis.
     pub acc_x: Option<f32>,
     /// Accelerometer reading along for Y-axis.
@@ -65,74 +65,74 @@ pub trait ToLog {
 
 impl ToLog for Imu3Acc {
     fn fill_record(&self, record: &mut LogRecord) {
-        record.acc_x = Some(self.acc_x);
-        record.acc_y = Some(self.acc_y);
-        record.acc_z = Some(self.acc_z);
+        record.acc_x = Some(self.acc_x.get());
+        record.acc_y = Some(self.acc_y.get());
+        record.acc_z = Some(self.acc_z.get());
     }
 }
 
 impl ToLog for Imu3Gyr {
     fn fill_record(&self, record: &mut LogRecord) {
-        record.gyr_x = Some(self.gyr_x);
-        record.gyr_y = Some(self.gyr_y);
-        record.gyr_z = Some(self.gyr_z);
+        record.gyr_x = Some(self.gyr_x.get());
+        record.gyr_y = Some(self.gyr_y.get());
+        record.gyr_z = Some(self.gyr_z.get());
     }
 }
 
 impl ToLog for Imu3Mag {
     fn fill_record(&self, record: &mut LogRecord) {
-        record.mag_x = Some(self.mag_x);
-        record.mag_y = Some(self.mag_y);
-        record.mag_z = Some(self.mag_z);
+        record.mag_x = Some(self.mag_x.get());
+        record.mag_y = Some(self.mag_y.get());
+        record.mag_z = Some(self.mag_z.get());
     }
 }
 
 impl ToLog for Imu6 {
     fn fill_record(&self, record: &mut LogRecord) {
-        record.acc_x = Some(self.acc.acc_x);
-        record.acc_y = Some(self.acc.acc_y);
-        record.acc_z = Some(self.acc.acc_z);
-        record.gyr_x = Some(self.gyr.gyr_x);
-        record.gyr_y = Some(self.gyr.gyr_y);
-        record.gyr_z = Some(self.gyr.gyr_z);
+        record.acc_x = Some(self.acc.acc_x.get());
+        record.acc_y = Some(self.acc.acc_y.get());
+        record.acc_z = Some(self.acc.acc_z.get());
+        record.gyr_x = Some(self.gyr.gyr_x.get());
+        record.gyr_y = Some(self.gyr.gyr_y.get());
+        record.gyr_z = Some(self.gyr.gyr_z.get());
     }
 }
 
 impl ToLog for Imu9 {
     fn fill_record(&self, record: &mut LogRecord) {
-        record.acc_x = Some(self.acc.acc_x);
-        record.acc_y = Some(self.acc.acc_y);
-        record.acc_z = Some(self.acc.acc_z);
-        record.gyr_x = Some(self.gyr.gyr_x);
-        record.gyr_y = Some(self.gyr.gyr_y);
-        record.gyr_z = Some(self.gyr.gyr_z);
-        record.mag_x = Some(self.mag.mag_x);
-        record.mag_y = Some(self.mag.mag_y);
-        record.mag_z = Some(self.mag.mag_z);
+        record.acc_x = Some(self.acc.acc_x.get());
+        record.acc_y = Some(self.acc.acc_y.get());
+        record.acc_z = Some(self.acc.acc_z.get());
+        record.gyr_x = Some(self.gyr.gyr_x.get());
+        record.gyr_y = Some(self.gyr.gyr_y.get());
+        record.gyr_z = Some(self.gyr.gyr_z.get());
+        record.mag_x = Some(self.mag.mag_x.get());
+        record.mag_y = Some(self.mag.mag_y.get());
+        record.mag_z = Some(self.mag.mag_z.get());
     }
 }
 
 impl ToLog for Imu10 {
     fn fill_record(&self, record: &mut LogRecord) {
-        record.acc_x = Some(self.acc.acc_x);
-        record.acc_y = Some(self.acc.acc_y);
-        record.acc_z = Some(self.acc.acc_z);
-        record.gyr_x = Some(self.gyr.gyr_x);
-        record.gyr_y = Some(self.gyr.gyr_y);
-        record.gyr_z = Some(self.gyr.gyr_z);
-        record.mag_x = Some(self.mag.mag_x);
-        record.mag_y = Some(self.mag.mag_y);
-        record.mag_z = Some(self.mag.mag_z);
-        record.pressure = Some(self.baro);
+        record.acc_x = Some(self.acc.acc_x.get());
+        record.acc_y = Some(self.acc.acc_y.get());
+        record.acc_z = Some(self.acc.acc_z.get());
+        record.gyr_x = Some(self.gyr.gyr_x.get());
+        record.gyr_y = Some(self.gyr.gyr_y.get());
+        record.gyr_z = Some(self.gyr.gyr_z.get());
+        record.mag_x = Some(self.mag.mag_x.get());
+        record.mag_y = Some(self.mag.mag_y.get());
+        record.mag_z = Some(self.mag.mag_z.get());
+        record.pressure = Some(self.baro.get());
     }
 }
 
 impl ToLog for ImuQuat {
     fn fill_record(&self, record: &mut LogRecord) {
-        record.q_w = self.w;
-        record.q_x = self.x;
-        record.q_y = self.y;
-        record.q_z = self.z;
+        record.q_w = self.w.get();
+        record.q_x = self.x.get();
+        record.q_y = self.y.get();
+        record.q_z = self.z.get();
     }
 }
 

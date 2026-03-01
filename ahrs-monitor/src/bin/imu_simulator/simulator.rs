@@ -3,14 +3,16 @@
 
 //! IMU simulator implementation.
 
+use indtp::{Frame, Mode};
+use indtp::engines::{SwCryptoEngine, SwIntegrityEngine};
+use indtp::types::CryptoKeys;
 use crate::utils::generate_payload;
-use aes_gcm::{Aes128Gcm, Key, KeyInit, aead::Aead};
 use ahrs_monitor::config::{self, AppConfig};
 use tokio::{
     net::UdpSocket,
     time::{Duration, Instant},
 };
-use tsilna_nav::protocol::idtp::{IdtpFrame, IdtpHeader, IdtpMode};
+use ahrs_monitor::core::StandardPayload;
 
 /// IMU simulator struct.
 pub struct ImuSimulator {
@@ -20,8 +22,8 @@ pub struct ImuSimulator {
     simulator_addr: String,
     /// AHRS Monitor's IP address.
     monitor_addr: String,
-    /// AES-GCM with a 128-bit key.
-    aes_cipher: Option<Aes128Gcm>,
+    /// Container for cryptographic keys.
+    keys: CryptoKeys,
 }
 
 impl ImuSimulator {
@@ -44,20 +46,11 @@ impl ImuSimulator {
         let monitor_addr =
             format!("{}:{}", net_cfg.ip_address.clone(), net_cfg.udp_port);
 
-        let aes_cipher = if net_cfg.use_encryption {
-            let aes_key = Key::<Aes128Gcm>::from_slice(config::AES_KEY);
-            let aes_cipher = Aes128Gcm::new(aes_key);
-
-            Some(aes_cipher)
-        } else {
-            None
-        };
-
         Self {
             cfg,
             simulator_addr,
             monitor_addr,
-            aes_cipher,
+            keys: CryptoKeys::new(*config::AES_KEY, *config::HMAC_KEY),
         }
     }
 
@@ -75,18 +68,23 @@ impl ImuSimulator {
         println!("Listening on {} (UDP)", self.simulator_addr);
         println!("Sending to AHRS Monitor: {} (UDP)", self.monitor_addr);
 
-        let mut sequence = 0u32;
         let mut buffer = vec![0u8; 64];
+        let mut sequence = 0u16;
         let mut rng_state = 1;
 
-        let mut header = IdtpHeader::new();
-        header.mode = IdtpMode::Safety.into();
-        header.device_id = 0xABCD;
-
-        let mut frame = IdtpFrame::new();
+        let device_id = 0xAA;
         let payload_type = self.cfg.imu.payload_type();
-        let imu_metrics = self.cfg.imu.metrics;
+        let payload_len = StandardPayload::len_from(payload_type);
+        let mode = Mode::try_from(self.cfg.imu.protocol_mode).unwrap_or(Mode::Lite);
 
+        let mut frame = match mode {
+            Mode::Lite => Frame::new_lite(&mut buffer, device_id, payload_type.as_u8(), payload_len + 4),
+            Mode::Verified => Frame::new_verified(&mut buffer, device_id, payload_type.as_u8(), payload_len + 4),
+            Mode::Trusted => Frame::new_trusted(&mut buffer, device_id, payload_type.as_u8(), payload_len + 4),
+            Mode::Critical => Frame::new_critical(&mut buffer, device_id, payload_type.as_u8(), payload_len + 4),
+        }?;
+
+        let imu_metrics = self.cfg.imu.metrics;
         let delay_time = Duration::from_millis(5); // 5 ms (200 Hz).
         let start_time = Instant::now();
 
@@ -94,19 +92,13 @@ impl ImuSimulator {
             let payload =
                 generate_payload(rng_state, &payload_type, &imu_metrics);
 
-            header.sequence = sequence;
-            header.timestamp = start_time.elapsed().as_micros() as u32;
+            frame.set_sequence(sequence);
+            let timestamp = start_time.elapsed().as_micros() as u32;
 
-            frame.set_header(&header);
-            let _ = frame
-                .set_payload_raw(payload.to_bytes(), payload.payload_type());
+            frame.push_single_sample(timestamp, payload.to_bytes())?;
+            let _ = frame.pack::<SwIntegrityEngine, SwCryptoEngine>(Some(&self.keys))?;
 
-            let frame_size = frame.size();
-            let _ = frame.pack(&mut buffer[..frame_size], None);
-
-            let raw_frame = self.encrypt_frame(&buffer);
-            socket.send_to(&raw_frame, &self.monitor_addr).await?;
-
+            socket.send_to(frame.frame().unwrap(), &self.monitor_addr).await?;
             sequence += 1;
 
             if sequence.is_multiple_of(1000) {
@@ -115,33 +107,6 @@ impl ImuSimulator {
 
             tokio::time::sleep(delay_time).await;
             rng_state += 1;
-        }
-    }
-
-    /// Encrypt frame if encryption mode is enabled.
-    ///
-    /// # Parameters
-    /// - `buffer` - given raw IDTP frame bytes to handle.
-    ///
-    /// # Returns
-    /// - Encrypted frame - if encryption mode is enabled.
-    /// - Same IDTP frame bytes - otherwise.
-    fn encrypt_frame(&self, buffer: &[u8]) -> Vec<u8> {
-        if let Some(aes_cipher) = &self.aes_cipher {
-            let iv = rand::random::<[u8; 12]>();
-            let encrypted_frame = aes_cipher.encrypt(&iv.into(), buffer).ok();
-
-            if let Some(frame) = encrypted_frame {
-                // Packet structure [Nonce (IV) 12 bytes][Encrypted IDTP frame].
-                let mut data = Vec::with_capacity(12 + frame.len());
-                data.extend_from_slice(&iv);
-                data.extend(frame);
-                data
-            } else {
-                buffer.to_vec()
-            }
-        } else {
-            buffer.to_vec()
         }
     }
 }

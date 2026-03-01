@@ -8,16 +8,15 @@ use crate::{
     core::attitude::{AttitudeEstimator, estimate_attitude},
     model::{AppEvent, FrameContext},
 };
-use aes_gcm::{
-    Aes128Gcm, Key, KeyInit,
-    aead::{Aead, Nonce},
-};
-use anyhow::anyhow;
 use tokio::{net::UdpSocket, sync::mpsc::Sender, time};
-use tsilna_nav::{
-    math::Quat32,
-    protocol::idtp::{IDTP_FRAME_MAX_SIZE, IdtpFrame, IdtpMode},
-};
+use tsilna_nav::math::Quat32;
+use indtp::{MTU_SIZE, Frame};
+use indtp::engines::{SwCryptoEngine, SwIntegrityEngine};
+use indtp::payload::PayloadType;
+use indtp::types::CryptoKeys;
+use indtp::utils::is_sequence_correct;
+use crate::core::StandardPayload;
+use crate::model::FrameWrapper;
 
 /// Mediator between AHRS monitor and IMU.
 pub struct Ingester {
@@ -28,13 +27,13 @@ pub struct Ingester {
     /// Total number of invalid packets.
     bad_packets: usize,
     /// Previous frame sequence number.
-    prev_sequence: u32,
+    prev_sequence: Option<u16>,
     /// Last timestamp in microseconds.
     last_timestamp_us: Option<u32>,
     /// Orientation estimator.
     estimator: AttitudeEstimator,
-    /// AES-GCM with a 128-bit key.
-    aes_cipher: Option<Aes128Gcm>,
+    /// Container for cryptographic keys.
+    keys: CryptoKeys,
 }
 
 impl Ingester {
@@ -48,23 +47,14 @@ impl Ingester {
     /// - New `Ingester` object.
     #[must_use]
     pub fn new(tx: Sender<AppEvent>, cfg: AppConfig) -> Self {
-        let aes_cipher = if cfg.net.use_encryption {
-            let aes_key = Key::<Aes128Gcm>::from_slice(config::AES_KEY);
-            let aes_cipher = Aes128Gcm::new(aes_key);
-
-            Some(aes_cipher)
-        } else {
-            None
-        };
-
         Self {
             tx,
             cfg,
             bad_packets: 0,
-            prev_sequence: 0,
+            prev_sequence: None,
             last_timestamp_us: None,
             estimator: AttitudeEstimator::new(),
-            aes_cipher,
+            keys: CryptoKeys::new(*config::AES_KEY, *config::HMAC_KEY),
         }
     }
 
@@ -90,7 +80,7 @@ impl Ingester {
             .await?;
 
         let socket = bind_result?;
-        let mut buffer = [0u8; IDTP_FRAME_MAX_SIZE];
+        let mut buffer = [0u8; MTU_SIZE];
 
         log::info!("Listening for IDTP frames...");
 
@@ -105,40 +95,55 @@ impl Ingester {
             tokio::select! {
                 recv = socket.recv_from(&mut buffer) => {
                     let (len, _addr) = recv?;
-                    let raw_frame = buffer.get(..len)
-                        .ok_or_else(|| anyhow!("Buffer underflow"))?;
 
                     total_packets += 1;
                     packets_in_last_second += 1;
 
-                    let mut is_valid = false;
-                    let mut quaternion = None;
-                    let mut frame_opt = None;
+                    let mut frame_ctx = FrameContext::default();
+                    let result = Frame::parse::<SwIntegrityEngine, SwCryptoEngine>(&mut buffer[..len], Some(&self.keys));
 
-                    let raw_frame = if let Some(decrypted_frame) = self.decrypt_frame(raw_frame)
-                    && let Some(frame) = Self::validate_frame(&decrypted_frame) {
-                        quaternion = Some(self.estimate_attitude(&frame));
-                        frame_opt = Some(frame);
-                        is_valid = true;
+                    match result {
+                        Ok(mut frame) => {
+                            let header = frame.header();
+                            let recv_seq = header.sequence.get();
 
-                        let header = frame.header();
-                        self.prev_sequence = header.sequence;
-                        self.last_timestamp_us = Some(header.timestamp);
-                        decrypted_frame.clone()
-                    } else {
-                        self.bad_packets += 1;
-                        raw_frame.to_vec()
-                    };
+                            if is_sequence_correct(recv_seq, self.prev_sequence) {
+                                let payload_type = PayloadType::from(header.payload_type);
 
-                    let frame_ctx = FrameContext {
-                        frame: frame_opt,
-                        total_packets,
-                        bad_packets: self.bad_packets,
-                        pps: current_pps,
-                        is_valid,
-                        raw_frame,
-                        quaternion,
-                    };
+                                if frame.is_encrypted() {
+                                    frame.decrypt::<SwCryptoEngine>(&self.keys)?;
+                                }
+
+                                if let Ok((timestamp, payload)) = frame.read_single_sample() {
+                                    let payload = StandardPayload::try_from(&payload, payload_type);
+
+                                    frame_ctx.quaternion = Some(self.estimate_attitude(timestamp, &payload));
+                                    self.prev_sequence = Some(recv_seq);
+
+                                    let frame_wrapper = FrameWrapper {
+                                        header: frame.header().clone(),
+                                        payload,
+                                        trailer: frame.trailer()?.to_vec(),
+                                        size: frame.size(),
+                                        flags: frame.flags(),
+                                    };
+
+                                    frame_ctx.frame = Some(frame_wrapper);
+                                    frame_ctx.timestamp = timestamp;
+                                    frame_ctx.is_valid = true;
+                                }
+                            }
+                        }
+                        Err(e) => {
+                            log::error!("Error: {e}");
+                            self.bad_packets += 1;
+                            frame_ctx.is_valid = false;
+                        }
+                    }
+
+                    frame_ctx.total_packets = total_packets;
+                    frame_ctx.bad_packets = self.bad_packets;
+                    frame_ctx.pps = current_pps;
 
                     let _ = self.tx.send(
                         AppEvent::FrameReceived(Box::new(frame_ctx))
@@ -152,44 +157,17 @@ impl Ingester {
         }
     }
 
-    /// Validate IDTP frame.
-    ///
-    /// # Parameters
-    /// - `raw_frame` - given raw IDTP frame bytes to handle.
-    ///
-    /// # Returns
-    /// - Correct IDTP frame - in case of success.
-    /// - `None` - otherwise.
-    fn validate_frame(raw_frame: &[u8]) -> Option<IdtpFrame> {
-        let frame = IdtpFrame::try_from(raw_frame).ok()?;
-        let header = frame.header();
-        let mode = header.mode;
-
-        let hmac_key = if mode == u8::from(IdtpMode::Secure) {
-            Some(config::HMAC_KEY.as_ref())
-        } else {
-            None
-        };
-
-        if IdtpFrame::validate(raw_frame, hmac_key).is_err() {
-            return None;
-        }
-
-        Some(frame)
-    }
-
     /// Estimate IMU attitude.
     ///
     /// # Parameters
-    /// - `frame` - given IDTP frame to handle.
+    /// - `frame` - given IDTP frame to handle. TODO:
     ///
     /// # Returns
     /// - Attitude in quaternion representation - in case of success.
     /// - `None` - otherwise.
-    fn estimate_attitude(&mut self, frame: &IdtpFrame) -> Quat32 {
+    fn estimate_attitude(&mut self, timestamp: u32, payload: &Option<StandardPayload>) -> Quat32 {
         let default_dt = 1.0 / self.cfg.imu.sample_rate;
-        let header = frame.header();
-        let current_timestamp_us = header.timestamp;
+        let current_timestamp_us = timestamp;
 
         let dt = self.last_timestamp_us.map_or(default_dt, |prev_us| {
             let diff = if current_timestamp_us >= prev_us {
@@ -204,31 +182,6 @@ impl Ingester {
             }
         });
 
-        estimate_attitude(&mut self.estimator, frame, dt)
-    }
-
-    /// Decrypt frame if encryption mode is enabled.
-    ///
-    /// # Parameters
-    /// - `buffer` - given raw packet bytes to handle.
-    ///
-    /// # Returns
-    /// - Decrypted frame - if encryption mode is enabled.
-    /// - Same IDTP frame bytes - otherwise.
-    /// - `None` - in case of failure.
-    fn decrypt_frame(&self, buffer: &[u8]) -> Option<Vec<u8>> {
-        if let Some(aes_cipher) = &self.aes_cipher {
-            // Packet structure [Nonce (IV) 12 bytes][Encrypted IDTP frame].
-            if buffer.len() < 12 {
-                return None;
-            }
-
-            let (iv, ciphertext) = buffer.split_at(12);
-            let iv = Nonce::<Aes128Gcm>::from_slice(iv);
-
-            aes_cipher.decrypt(iv, ciphertext).ok()
-        } else {
-            Some(buffer.to_vec())
-        }
+        estimate_attitude(&mut self.estimator, payload, dt)
     }
 }

@@ -6,7 +6,7 @@
 use crate::{
     config,
     config::AppConfig,
-    core::IdtpStandardPayload,
+    core::StandardPayload,
     logger::{LogRecord, Logger, ToLog},
     model::{AppEvent, FrameContext},
     ui::{AppTab, DashboardTab, InspectorTab, TabViewer},
@@ -15,7 +15,7 @@ use eframe::Frame;
 use egui::{
     Align, CentralPanel, Color32, Context, Layout, RichText, TopBottomPanel,
 };
-use std::collections::VecDeque;
+use std::{collections::VecDeque, sync::Arc};
 use tokio::sync::mpsc::Receiver;
 
 /// Application handler.
@@ -35,9 +35,9 @@ pub struct App {
     /// IMU connection status.
     connection_status: bool,
     /// History of the last N frame contexts.
-    history: VecDeque<FrameContext>,
+    history: VecDeque<Arc<FrameContext>>,
     /// Current frame context.
-    current_frame: Option<FrameContext>,
+    current_frame: Option<Arc<FrameContext>>,
     /// Indicator whether UI is paused.
     is_paused: bool,
     /// IMU data logger.
@@ -121,6 +121,7 @@ impl App {
     }
 
     /// Enable/disable IMU data logging.
+    #[inline]
     pub fn toggle_logging(&mut self) {
         if self.logger.is_some() {
             self.logger = None;
@@ -229,6 +230,7 @@ impl App {
     ///
     /// # Parameters
     /// - `ui` - given screen UI handler.
+    #[inline]
     fn display_central_panel(&mut self, ui: &mut egui::Ui) {
         self.render_active_tab(ui);
 
@@ -369,34 +371,37 @@ impl App {
     ///
     /// # Parameters
     /// - `frame_ctx` - given new frame context info.
-    #[inline]
     fn handle_received_frame(&mut self, frame_ctx: Box<FrameContext>) {
-        self.history.push_back(*frame_ctx.clone());
+        let shared_ctx = Arc::new(*frame_ctx);
+
+        self.history.push_back(Arc::clone(&shared_ctx));
 
         if self.history.len() > config::HISTORY_MAX_SIZE {
             self.history.pop_front();
         }
 
         if !self.is_paused {
-            if let Some(frame) = frame_ctx.frame
-                && let Some(AppTab::Telemetry(tab)) = self
+            self.current_frame = Some(Arc::clone(&shared_ctx));
+
+            if let Some(ref frame) = shared_ctx.frame {
+                if let Some(AppTab::Telemetry(tab)) = self
                     .tabs
                     .iter_mut()
                     .find(|tab| matches!(tab, AppTab::Telemetry(_)))
-            {
-                tab.add_data(&frame, &self.config.imu.payload_type());
+                {
+                    tab.add_data(frame);
+                }
+
+                if let Some(AppTab::Dashboard(tab)) = self
+                    .tabs
+                    .iter_mut()
+                    .find(|tab| matches!(tab, AppTab::Dashboard(_)))
+                {
+                    tab.add_data(&shared_ctx.quaternion);
+                }
             }
 
-            if let Some(AppTab::Dashboard(tab)) = self
-                .tabs
-                .iter_mut()
-                .find(|tab| matches!(tab, AppTab::Dashboard(_)))
-            {
-                tab.add_data(&frame_ctx);
-            }
-
-            self.write_record(&frame_ctx);
-            self.current_frame = Some(*frame_ctx);
+            self.write_record(&shared_ctx);
         }
     }
 
@@ -405,8 +410,8 @@ impl App {
     /// # Parameters
     /// - `frame_ctx` - given current frame context info.
     fn write_record(&mut self, frame_ctx: &FrameContext) {
-        if let Some(frame) = frame_ctx.frame {
-            let header = frame.header();
+        if let Some(frame) = &frame_ctx.frame {
+            let header = frame.header;
 
             let (q_w, q_x, q_y, q_z, roll, pitch, yaw) = frame_ctx
                 .quaternion
@@ -414,9 +419,9 @@ impl App {
                     let e = quat.euler_angles();
                     (quat.w, quat.i, quat.j, quat.k, e.0, e.1, e.2)
                 });
-
+            
             let mut record = LogRecord {
-                timestamp: header.timestamp,
+                timestamp: frame_ctx.timestamp,
                 device_id: header.device_id,
                 q_w,
                 q_x,
@@ -428,23 +433,15 @@ impl App {
                 ..LogRecord::default()
             };
 
-            if let Some(payload) = IdtpStandardPayload::try_from_frame(&frame) {
+            if let Some(payload) = &frame.payload {
                 match payload {
-                    IdtpStandardPayload::Imu3Acc(p) => {
-                        p.fill_record(&mut record);
-                    }
-                    IdtpStandardPayload::Imu3Gyr(p) => {
-                        p.fill_record(&mut record);
-                    }
-                    IdtpStandardPayload::Imu3Mag(p) => {
-                        p.fill_record(&mut record);
-                    }
-                    IdtpStandardPayload::Imu6(p) => p.fill_record(&mut record),
-                    IdtpStandardPayload::Imu9(p) => p.fill_record(&mut record),
-                    IdtpStandardPayload::Imu10(p) => p.fill_record(&mut record),
-                    IdtpStandardPayload::ImuQuat(p) => {
-                        p.fill_record(&mut record);
-                    }
+                    StandardPayload::Imu3Acc(p) => p.fill_record(&mut record),
+                    StandardPayload::Imu3Gyr(p) => p.fill_record(&mut record),
+                    StandardPayload::Imu3Mag(p) => p.fill_record(&mut record),
+                    StandardPayload::Imu6(p) => p.fill_record(&mut record),
+                    StandardPayload::Imu9(p) => p.fill_record(&mut record),
+                    StandardPayload::Imu10(p) => p.fill_record(&mut record),
+                    StandardPayload::ImuQuat(p) => p.fill_record(&mut record),
                 }
             }
 

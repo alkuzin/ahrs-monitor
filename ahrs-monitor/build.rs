@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0.
 // Copyright (C) 2026-present ahrs-monitor project and contributors.
 
-use rand::RngCore;
+use rand::Rng;
 use std::{fs, path::Path};
 
 fn main() {

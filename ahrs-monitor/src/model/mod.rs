@@ -3,15 +3,32 @@
 
 //! Application state module.
 
-use tsilna_nav::{math::Quat32, protocol::idtp::IdtpFrame};
+use tsilna_nav::math::Quat32;
+use indtp::{Flags, Header};
+use crate::core::StandardPayload;
+
+/// TODO:
+#[derive(Default, Debug)]
+pub struct FrameWrapper {
+    /// TODO:
+    pub header: Header,
+    /// TODO:
+    pub payload: Option<StandardPayload>,
+    /// TODO:
+    pub trailer: Vec<u8>,
+    /// TODO:
+    pub size: usize,
+    /// TODO:
+    pub flags: Flags,
+}
 
 /// Context data after receiving the frame.
-#[derive(Debug, Default, Clone)]
+#[derive(Default, Debug)]
 pub struct FrameContext {
-    /// IMU Data Transfer Protocol frame.
-    pub frame: Option<IdtpFrame>,
-    /// Raw frame bytes.
-    pub raw_frame: Vec<u8>,
+    /// INDTP frame.
+    pub frame: Option<FrameWrapper>,
+    /// Sensor-local time in microseconds.
+    pub timestamp: u32,
     /// Indicator whether current frame is valid.
     pub is_valid: bool,
     /// Total number of packets.
@@ -25,7 +42,6 @@ pub struct FrameContext {
 }
 
 /// Application events enumeration.
-#[derive(Debug)]
 pub enum AppEvent {
     /// Event for updating IMU connection status.
     UpdateConnectionStatus(bool),

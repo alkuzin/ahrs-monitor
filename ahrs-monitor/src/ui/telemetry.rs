@@ -12,7 +12,8 @@ use crate::{
     },
 };
 use eframe::epaint::Color32;
-use tsilna_nav::protocol::idtp::{IdtpFrame, payload::PayloadType};
+use indtp::{payload::PayloadType};
+use crate::model::FrameWrapper;
 
 /// Number of metrics in history.
 const HISTORY_ENTRIES: usize = 10;
@@ -38,9 +39,8 @@ impl TelemetryTab {
     ///
     /// # Parameters
     /// - `frame` - given IDTP frame to handle.
-    /// - `payload_type` - given payload type to handle.
-    pub fn add_data(&mut self, frame: &IdtpFrame, payload_type: &PayloadType) {
-        let data = extract_readings(frame, payload_type);
+    pub fn add_data(&mut self, frame: &FrameWrapper) {
+        let data = extract_readings(frame);
         self.plotter.add_data(data);
     }
 }
@@ -78,7 +78,7 @@ impl TabViewer for TelemetryTab {
             let acc_indices = &[0, 1, 2];
 
             let gyr_indices = {
-                if payload_type == PayloadType::Imu3Gyr.into() {
+                if payload_type == PayloadType::Imu3Gyr.as_u8() {
                     &[0, 1, 2]
                 } else {
                     &[3, 4, 5]
@@ -86,7 +86,7 @@ impl TabViewer for TelemetryTab {
             };
 
             let mag_indices = {
-                if payload_type == PayloadType::Imu3Mag.into() {
+                if payload_type == PayloadType::Imu3Mag.as_u8() {
                     &[0, 1, 2]
                 } else {
                     &[6, 7, 8]

@@ -7,13 +7,8 @@ use eframe::epaint::Color32;
 use egui::RichText;
 use egui_plot::{Corner, Legend, Line, Plot, PlotPoints};
 use std::collections::VecDeque;
-use tsilna_nav::protocol::idtp::{
-    IdtpFrame,
-    payload::{
-        AsMetricsArray, Imu3Acc, Imu3Gyr, Imu3Mag, Imu6, Imu9, Imu10, ImuQuat,
-        PayloadType,
-    },
-};
+use indtp::types::F32;
+use crate::{core::StandardPayload, model::FrameWrapper};
 
 /// Display custom metric.
 ///
@@ -181,53 +176,48 @@ impl<const ENTRIES: usize, const POINTS: usize> Default
 /// - `frame` - given IDTP frame to handle.
 /// - `payload_type` - given payload type to handle.
 #[must_use]
-pub fn extract_readings(
-    frame: &IdtpFrame,
-    payload_type: &PayloadType,
-) -> [f32; 10] {
+pub fn extract_readings(frame: &FrameWrapper) -> [f32; 10] {
     // Add padding to IMU data.
-    let pad = |src: &[f32]| {
-        let mut res = [0.0; 10];
+    #[allow(clippy::indexing_slicing)]
+    let pad = |src: &[F32]| {
+        let mut res: [F32; 10] = [0.0.into(); 10];
         let len = src.len().min(10);
-
-        #[allow(clippy::indexing_slicing)]
-        {
-            res[..len].copy_from_slice(&src[..len]);
-        }
-
+        res[..len].copy_from_slice(&src[..len]);
         res
     };
-
-    let data: [f32; 10] = match payload_type {
-        PayloadType::Imu3Acc => frame
-            .payload::<Imu3Acc>()
-            .map(|p| pad(&p.to_array()))
-            .unwrap_or([0.0; 10]),
-        PayloadType::Imu3Gyr => frame
-            .payload::<Imu3Gyr>()
-            .map(|p| pad(&p.to_array()))
-            .unwrap_or([0.0; 10]),
-        PayloadType::Imu3Mag => frame
-            .payload::<Imu3Mag>()
-            .map(|p| pad(&p.to_array()))
-            .unwrap_or([0.0; 10]),
-        PayloadType::Imu6 => frame
-            .payload::<Imu6>()
-            .map(|p| pad(&p.to_array()))
-            .unwrap_or([0.0; 10]),
-        PayloadType::Imu9 => frame
-            .payload::<Imu9>()
-            .map(|p| pad(&p.to_array()))
-            .unwrap_or([0.0; 10]),
-        PayloadType::Imu10 => frame
-            .payload::<Imu10>()
-            .map(|p| pad(&p.to_array()))
-            .unwrap_or([0.0; 10]),
-        PayloadType::ImuQuat => frame
-            .payload::<ImuQuat>()
-            .map(|p| pad(&p.to_array()))
-            .unwrap_or([0.0; 10]),
+    
+    let data = if let Some(payload) = &frame.payload {
+        match payload {
+            StandardPayload::Imu3Acc(p) => pad(&[p.acc_x, p.acc_y, p.acc_z]),
+            StandardPayload::Imu3Gyr(p) => pad(&[p.gyr_x, p.gyr_y, p.gyr_z]),
+            StandardPayload::Imu3Mag(p) => pad(&[p.mag_x, p.mag_y, p.mag_z]),
+            StandardPayload::Imu6(p) => {
+                pad(&[
+                    p.acc.acc_x, p.acc.acc_y, p.acc.acc_z,
+                    p.gyr.gyr_x, p.gyr.gyr_y, p.gyr.gyr_z,
+                ])
+            },
+            StandardPayload::Imu9(p) => {
+                pad(&[
+                    p.acc.acc_x, p.acc.acc_y, p.acc.acc_z,
+                    p.gyr.gyr_x, p.gyr.gyr_y, p.gyr.gyr_z,
+                    p.mag.mag_x, p.mag.mag_y, p.mag.mag_z,
+                ])
+            },
+            StandardPayload::Imu10(p) => {
+                pad(&[
+                    p.acc.acc_x, p.acc.acc_y, p.acc.acc_z,
+                    p.gyr.gyr_x, p.gyr.gyr_y, p.gyr.gyr_z,
+                    p.mag.mag_x, p.mag.mag_y, p.mag.mag_z,
+                    p.baro,
+                ])
+            },
+            StandardPayload::ImuQuat(p) => pad(&[p.w, p.x, p.y, p.x]),
+        }
+    } else {
+        [0.0.into(); 10]
     };
 
+    let data: [f32; 10] = data.map(|x| x.get());
     data
 }

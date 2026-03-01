@@ -5,7 +5,7 @@
 
 use ahrs_monitor::config;
 use chrono::Local;
-use rand::RngCore;
+use rand::{Rng};
 use std::{fs, path::Path};
 
 /// Generate AES-128 & HMAC-SHA256 keys.
@@ -32,6 +32,27 @@ fn generate_keys() {
 
     println!("Keys successfully updated in {dir:?} at {now}");
 }
+
+// struct ImuFirmwareConfig {
+//
+// }
+//
+// struct GatewayFirmwareConfig {
+//
+//     /// Flag whether to use encryption for IMU data transmission.
+//     pub use_encryption: bool,
+//
+//     /// AHRS Monitor ingester's IP address.
+//     pub const IP_ADDR: &str = "{}";
+//
+//     /// AHRS Monitor ingester's IP address.
+//     pub const UDP_PORT: u16 = {};
+//
+//     /// AES-128 encryption key.
+//     pub const AES_KEY: &[u8; 16] = include_bytes!("../../configs/firmware/secrets/aes.key");
+//
+// }
+
 
 /// Generate config file for firmware based on AHRS Monitor configurations.
 fn generate_config() {
@@ -61,6 +82,9 @@ pub const UDP_PORT: u16 = {};
 
 /// AES-128 encryption key.
 pub const AES_KEY: &[u8; 16] = include_bytes!("../../configs/firmware/secrets/aes.key");
+
+
+
 
 /// HMAC-SHA256 key.
 pub const HMAC_KEY: &[u8; 32] = include_bytes!("../../configs/firmware/secrets/hmac.key");

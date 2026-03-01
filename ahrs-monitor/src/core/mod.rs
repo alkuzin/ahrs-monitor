@@ -8,15 +8,17 @@ pub mod attitude;
 mod ingester;
 
 pub use ingester::Ingester;
-use tsilna_nav::protocol::idtp::{
-    IdtpFrame,
+use indtp::{
     payload::{
-        IdtpPayload, Imu3Acc, Imu3Gyr, Imu3Mag, Imu6, Imu9, Imu10, ImuQuat,
+        Payload, Imu3Acc, Imu3Gyr, Imu3Mag, Imu6, Imu9, Imu10, ImuQuat,
     },
+    types::Packable,
 };
+use indtp::payload::PayloadType;
 
-/// IDTP standard payload enumeration.
-pub enum IdtpStandardPayload {
+/// INDTP standard payload enumeration.
+#[derive(Debug)]
+pub enum StandardPayload {
     /// Accelerometer only (for 3-axis sensor).
     Imu3Acc(Imu3Acc),
     /// Gyroscope only (for 3-axis sensor).
@@ -35,7 +37,7 @@ pub enum IdtpStandardPayload {
     ImuQuat(ImuQuat),
 }
 
-impl IdtpStandardPayload {
+impl StandardPayload {
     /// Convert payload to bytes.
     ///
     /// # Returns
@@ -78,24 +80,47 @@ impl IdtpStandardPayload {
     /// # Returns
     /// - Standard payload - in case of success.
     /// - `None` - otherwise.
-    pub fn try_from_frame(frame: &IdtpFrame) -> Option<Self> {
-        match frame.header().payload_type {
-            Imu3Acc::TYPE_ID => {
-                frame.payload::<Imu3Acc>().ok().map(Self::Imu3Acc)
-            }
-            Imu3Gyr::TYPE_ID => {
-                frame.payload::<Imu3Gyr>().ok().map(Self::Imu3Gyr)
-            }
-            Imu3Mag::TYPE_ID => {
-                frame.payload::<Imu3Mag>().ok().map(Self::Imu3Mag)
-            }
-            Imu6::TYPE_ID => frame.payload::<Imu6>().ok().map(Self::Imu6),
-            Imu9::TYPE_ID => frame.payload::<Imu9>().ok().map(Self::Imu9),
-            Imu10::TYPE_ID => frame.payload::<Imu10>().ok().map(Self::Imu10),
-            ImuQuat::TYPE_ID => {
-                frame.payload::<ImuQuat>().ok().map(Self::ImuQuat)
+    pub fn try_from(payload: &[u8], payload_type: PayloadType) -> Option<Self> {
+        match payload_type {
+            PayloadType::Imu3Acc => {
+                Imu3Acc::from_bytes(payload).ok().map(Self::Imu3Acc)
+            },
+            PayloadType::Imu3Gyr => {
+                Imu3Gyr::from_bytes(payload).ok().map(Self::Imu3Gyr)
+            },
+            PayloadType::Imu3Mag => {
+                Imu3Mag::from_bytes(payload).ok().map(Self::Imu3Mag)
+            },
+            PayloadType::Imu6 => {
+                Imu6::from_bytes(payload).ok().map(Self::Imu6)
+            },
+            PayloadType::Imu9 => Imu9::from_bytes(payload).ok().map(Self::Imu9),
+            PayloadType::Imu10 => Imu10::from_bytes(payload).ok().map(Self::Imu10),
+            PayloadType::ImuQuat => {
+                ImuQuat::from_bytes(payload).ok().map(Self::ImuQuat)
             }
             _ => None,
         }
     }
+
+    /// Get payload length from payload type.
+    /// 
+    /// # Parameters
+    /// - `payload_type` - given payload type to handle.
+    /// 
+    /// # Returns
+    /// - Payload length in bytes.
+    pub fn len_from(payload_type: PayloadType) -> usize {
+        match payload_type {
+            PayloadType::Imu3Acc => Imu3Acc::len(),
+            PayloadType::Imu3Gyr => Imu3Gyr::len(),
+            PayloadType::Imu3Mag => Imu3Mag::len(),
+            PayloadType::Imu6 => Imu6::len(),
+            PayloadType::Imu9 => Imu9::len(),
+            PayloadType::Imu10 => Imu10::len(),
+            PayloadType::ImuQuat => ImuQuat::len(),
+            PayloadType::Reserved(_) => 0,
+        }
+    }
+
 }

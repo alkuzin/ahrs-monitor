@@ -12,7 +12,7 @@ pub use imu::*;
 pub use net::*;
 use serde::{Deserialize, Serialize};
 use std::{fs, process};
-use tsilna_nav::protocol::idtp::payload::PayloadType;
+use indtp::payload::PayloadType;
 
 /// Window width in pixels.
 pub const APP_WINDOW_WIDTH: f32 = 1024.0;
@@ -78,12 +78,7 @@ pub fn load_config(path: &str) -> AppConfig {
             process::exit(1);
         });
 
-    if let Ok(payload_type) = PayloadType::try_from(config.imu.payload_type) {
-        config.imu.metrics = ImuMetrics::from(payload_type);
-    } else {
-        log::error!("Error to parse payload type: {}", config.imu.payload_type);
-        process::exit(1);
-    }
-
+    let payload_type = PayloadType::from(config.imu.payload_type);
+    config.imu.metrics = ImuMetrics::from(payload_type);
     config
 }

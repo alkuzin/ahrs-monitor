@@ -3,26 +3,26 @@
 
 //! Inertial Measurement Unit (IMU) configurations.
 
+use indtp::payload::PayloadType;
 use crate::{
     app_config,
     config::{Deserialize, Serialize},
 };
-use tsilna_nav::protocol::idtp::payload::PayloadType;
 
 app_config! {
     /// IMU configurations.
     pub struct ImuConfig {
         /// IMU sample rate in Hz.
         pub sample_rate: f32,
-        /// IDTP payload type.
+        /// INDTP payload type.
         pub payload_type: u8,
         #[serde(skip)]
         /// Info about IMU metrics in IDTP payload.
         pub metrics: ImuMetrics,
         /// IMU device identifier.
         pub device_id: u16,
-        /// IDTP protocol mode.
-        pub idtp_mode: u8,
+        /// INDTP protocol mode.
+        pub protocol_mode: u8,
     }
 }
 
@@ -33,9 +33,9 @@ impl ImuConfig {
     /// - `true` - if config is correct.
     /// - `false` - otherwise.
     #[must_use]
+    #[inline]
     pub fn is_correct(&self) -> bool {
-        let standard_types_range = 0x00..0x06 + 1;
-        standard_types_range.contains(&self.payload_type)
+        self.payload_type().is_standard()
     }
 
     /// Get payload type.
@@ -43,8 +43,9 @@ impl ImuConfig {
     /// # Returns
     /// - Payload type according to IDTP specification.
     #[must_use]
+    #[inline]
     pub fn payload_type(&self) -> PayloadType {
-        PayloadType::try_from(self.payload_type).unwrap_or(PayloadType::Imu6)
+        PayloadType::from(self.payload_type)
     }
 }
 
@@ -110,6 +111,9 @@ impl From<PayloadType> for ImuMetrics {
                 quat: true,
                 ..Self::default()
             },
+            PayloadType::Reserved(_) => unreachable!(
+                "PayloadType::Reserved should never be used"
+            ),
         }
     }
 }
