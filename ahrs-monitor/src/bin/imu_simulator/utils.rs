@@ -4,115 +4,171 @@
 //! Utils for IMU simulator.
 
 use ahrs_monitor::{config::ImuMetrics, core::StandardPayload};
-use std::ops::Range;
-use tsilna_nav::math::rng::Xorshift;
 use indtp::payload::{Imu10, Imu3Acc, Imu3Gyr, Imu3Mag, Imu6, Imu9, ImuQuat, PayloadType};
+use rand::prelude::*;
+use rand_distr::{Normal, Distribution};
 
-/// Pseudo-random accelerometer readings range.
-const RNG_ACC_RANGE: Range<f32> = -157.0..157.0; // +- 16g (m/s^2)
+/// Earth's standard gravity in meters per second squared.
+const GRAVITY: f32 = 9.80665;
 
-/// Pseudo-random gyroscope readings range.
-const RNG_GYR_RANGE: Range<f32> = -35.0..35.0; // +-2000 DPS (rad/s).
+/// IMU readings simulator.
+pub struct ImuSimulator {
+    /// Internal clock for periodic wave generation.
+    time: f32,
+    /// Current simulated orientation (normalized).
+    quat: [f32; 4],
+    /// Current angular velocity (rad/s).
+    gyr: [f32; 3],
+    /// Last barometer reading (Pa).
+    last_baro: f32,
+    /// Pseudo-random number generator.
+    rng: StdRng,
+    /// Noise generator (Normal distribution).
+    noise_gen: Normal<f64>,
+}
 
-/// Pseudo-random magnetometer readings range.
-const RNG_MAG_RANGE: Range<f32> = -100.0..100.0; // (μT).
+impl ImuSimulator {
+    /// Construct new IMU readings simulator.
+    ///
+    /// # Parameters
+    /// - `seed` - given pseudo-random number generator seed to handle.
+    ///
+    /// # Returns
+    /// - New IMU readings simulator - in case of success.
+    /// - `Err` - otherwise.
+    pub fn new(seed: u64) -> anyhow::Result<Self> {
+        Ok(Self {
+            time: 0.0,
+            quat: [1.0, 0.0, 0.0, 0.0],
+            gyr: [0.0, 0.0, 0.0],
+            last_baro: 101325.0,
+            rng: StdRng::seed_from_u64(seed),
+            noise_gen: Normal::new(0.0, 0.02)?,
+        })
+    }
 
-/// Pseudo-random barometer readings range.
-const RNG_BARO_RANGE: Range<f32> = 90000.0..110000.0; // atm. (Pa)
+    /// Generate noise.
+    ///
+    /// # Returns
+    /// - Generated noise.
+    #[inline]
+    fn next_f32(&mut self) -> f32 {
+        self.noise_gen.sample(&mut self.rng) as f32
+    }
 
-/// Pseudo-random quaternion values range.
-const RNG_QUAT_RANGE: Range<f32> = -1.0..1.0;
+    /// Generate the next set of IMU readings.
+    ///
+    /// # Parameters
+    /// - `dt` - given delta time in seconds.
+    /// - `payload_type` - given standard payload type to handle.
+    /// - `metrics` - given IMU metrics to handle.
+    ///
+    /// # Returns
+    /// - Next generated set of IMU readings.
+    pub fn next_payload(&mut self, dt: f32, payload_type: &PayloadType, metrics: &ImuMetrics) -> StandardPayload {
+        self.time += dt;
 
-/// Generate payload with pseudo-random IMU sensors readings.
-///
-/// # Parameters
-/// - `state` - given pseudo-random numbers generator initial state.
-/// - `payload_type` - given payload type to handle.
-/// - `imu_metrics` - given IMU metrics type to handle.
-///
-/// # Returns
-/// - New generated payload.
-pub fn generate_payload(
-    state: u32,
-    payload_type: &PayloadType,
-    imu_metrics: &ImuMetrics,
-) -> StandardPayload {
-    let mut rng = Xorshift::new(state);
+        // Generating gyroscope readings.
+        for i in 0..3 {
+            let t = self.time;
+            let swing = (t * (1.2 + i as f32)).sin() * 100.0;
+            let jitter = (t * 25.0).sin() * 1.15;
+            self.gyr[i] = if metrics.gyr { swing + jitter } else { 0.0 };
+        }
 
-    // Generate random metric if enabled.
-    let mut generate = |enabled: bool, range: Range<f32>| -> f32 {
-        if enabled { rng.next_f32(range) } else { 0.0 }
-    };
+        // Generating quaternion.
+        if metrics.quat {
+            self.integrate_gyro(dt);
+        }
 
-    match payload_type {
-        PayloadType::Imu3Acc => StandardPayload::Imu3Acc(Imu3Acc {
-            acc_x: generate(imu_metrics.acc, RNG_ACC_RANGE).into(),
-            acc_y: generate(imu_metrics.acc, RNG_ACC_RANGE).into(),
-            acc_z: generate(imu_metrics.acc, RNG_ACC_RANGE).into(),
-        }),
-        PayloadType::Imu3Gyr => StandardPayload::Imu3Gyr(Imu3Gyr {
-            gyr_x: generate(imu_metrics.gyr, RNG_GYR_RANGE).into(),
-            gyr_y: generate(imu_metrics.gyr, RNG_GYR_RANGE).into(),
-            gyr_z: generate(imu_metrics.gyr, RNG_GYR_RANGE).into(),
-        }),
-        PayloadType::Imu3Mag => StandardPayload::Imu3Mag(Imu3Mag {
-            mag_x: generate(imu_metrics.mag, RNG_MAG_RANGE).into(),
-            mag_y: generate(imu_metrics.mag, RNG_MAG_RANGE).into(),
-            mag_z: generate(imu_metrics.mag, RNG_MAG_RANGE).into(),
-        }),
-        PayloadType::Imu6 => StandardPayload::Imu6(Imu6 {
-            acc: Imu3Acc {
-                acc_x: generate(imu_metrics.acc, RNG_ACC_RANGE).into(),
-                acc_y: generate(imu_metrics.acc, RNG_ACC_RANGE).into(),
-                acc_z: generate(imu_metrics.acc, RNG_ACC_RANGE).into(),
-            },
-            gyr: Imu3Gyr {
-                gyr_x: generate(imu_metrics.gyr, RNG_GYR_RANGE).into(),
-                gyr_y: generate(imu_metrics.gyr, RNG_GYR_RANGE).into(),
-                gyr_z: generate(imu_metrics.gyr, RNG_GYR_RANGE).into(),
-            },
-        }),
-        PayloadType::Imu9 => StandardPayload::Imu9(Imu9 {
-            acc: Imu3Acc {
-                acc_x: generate(imu_metrics.acc, RNG_ACC_RANGE).into(),
-                acc_y: generate(imu_metrics.acc, RNG_ACC_RANGE).into(),
-                acc_z: generate(imu_metrics.acc, RNG_ACC_RANGE).into(),
-            },
-            gyr: Imu3Gyr {
-                gyr_x: generate(imu_metrics.gyr, RNG_GYR_RANGE).into(),
-                gyr_y: generate(imu_metrics.gyr, RNG_GYR_RANGE).into(),
-                gyr_z: generate(imu_metrics.gyr, RNG_GYR_RANGE).into(),
-            },
-            mag: Imu3Mag {
-                mag_x: generate(imu_metrics.mag, RNG_MAG_RANGE).into(),
-                mag_y: generate(imu_metrics.mag, RNG_MAG_RANGE).into(),
-                mag_z: generate(imu_metrics.mag, RNG_MAG_RANGE).into(),
-            },
-        }),
-        PayloadType::Imu10 => StandardPayload::Imu10(Imu10 {
-            acc: Imu3Acc {
-                acc_x: generate(imu_metrics.acc, RNG_ACC_RANGE).into(),
-                acc_y: generate(imu_metrics.acc, RNG_ACC_RANGE).into(),
-                acc_z: generate(imu_metrics.acc, RNG_ACC_RANGE).into(),
-            },
-            gyr: Imu3Gyr {
-                gyr_x: generate(imu_metrics.gyr, RNG_GYR_RANGE).into(),
-                gyr_y: generate(imu_metrics.gyr, RNG_GYR_RANGE).into(),
-                gyr_z: generate(imu_metrics.gyr, RNG_GYR_RANGE).into(),
-            },
-            mag: Imu3Mag {
-                mag_x: generate(imu_metrics.mag, RNG_MAG_RANGE).into(),
-                mag_y: generate(imu_metrics.mag, RNG_MAG_RANGE).into(),
-                mag_z: generate(imu_metrics.mag, RNG_MAG_RANGE).into(),
-            },
-            baro: generate(imu_metrics.baro, RNG_BARO_RANGE).into(),
-        }),
-        PayloadType::ImuQuat => StandardPayload::ImuQuat(ImuQuat {
-            w: generate(imu_metrics.quat, RNG_QUAT_RANGE).into(),
-            x: generate(imu_metrics.quat, RNG_QUAT_RANGE).into(),
-            y: generate(imu_metrics.quat, RNG_QUAT_RANGE).into(),
-            z: generate(imu_metrics.quat, RNG_QUAT_RANGE).into(),
-        }),
-        &PayloadType::Reserved(_) => unreachable!("Unexpected payload type"),
+        // Generating accelerometer readings.
+        let (acc_x, acc_y, acc_z) = if metrics.acc {
+            let gravity = self.get_gravity_vector();
+            let mut jitter = || { (self.next_f32() - 0.5) * 2.3 };
+            (
+                gravity[0] + jitter(),
+                gravity[1] + jitter(),
+                gravity[2] + jitter()
+            )
+        } else {
+            (0.0, 0.0, 0.0)
+        };
+
+        // Generating magnetometer readings.
+        let (mag_x, mag_y, mag_z) = if metrics.mag {
+            (25.0 + self.next_f32(), -15.0 + self.next_f32(), -40.0 + self.next_f32())
+        } else {
+            (0.0, 0.0, 0.0)
+        };
+
+        // Generating barometer readings.
+        if metrics.baro {
+            self.last_baro += (self.next_f32() - 0.5) * 2.0;
+        }
+
+        match payload_type {
+            PayloadType::Imu3Acc => StandardPayload::Imu3Acc(Imu3Acc {
+                acc_x: acc_x.into(), acc_y: acc_y.into(), acc_z: acc_z.into(),
+            }),
+            PayloadType::Imu3Gyr => StandardPayload::Imu3Gyr(Imu3Gyr {
+                gyr_x: self.gyr[0].into(), gyr_y: self.gyr[1].into(), gyr_z: self.gyr[2].into(),
+            }),
+            PayloadType::Imu3Mag => StandardPayload::Imu3Mag(Imu3Mag {
+                mag_x: mag_x.into(), mag_y: mag_y.into(), mag_z: mag_z.into(),
+            }),
+            PayloadType::Imu6 => StandardPayload::Imu6(Imu6 {
+                acc: Imu3Acc { acc_x: acc_x.into(), acc_y: acc_y.into(), acc_z: acc_z.into() },
+                gyr: Imu3Gyr { gyr_x: self.gyr[0].into(), gyr_y: self.gyr[1].into(), gyr_z: self.gyr[2].into() },
+            }),
+            PayloadType::Imu9 => StandardPayload::Imu9(Imu9 {
+                acc: Imu3Acc { acc_x: acc_x.into(), acc_y: acc_y.into(), acc_z: acc_z.into() },
+                gyr: Imu3Gyr { gyr_x: self.gyr[0].into(), gyr_y: self.gyr[1].into(), gyr_z: self.gyr[2].into() },
+                mag: Imu3Mag { mag_x: mag_x.into(), mag_y: mag_y.into(), mag_z: mag_z.into() },
+            }),
+            PayloadType::Imu10 => StandardPayload::Imu10(Imu10 {
+                acc: Imu3Acc { acc_x: acc_x.into(), acc_y: acc_y.into(), acc_z: acc_z.into() },
+                gyr: Imu3Gyr { gyr_x: self.gyr[0].into(), gyr_y: self.gyr[1].into(), gyr_z: self.gyr[2].into() },
+                mag: Imu3Mag { mag_x: mag_x.into(), mag_y: mag_y.into(), mag_z: mag_z.into() },
+                baro: self.last_baro.into(),
+            }),
+            PayloadType::ImuQuat => StandardPayload::ImuQuat(ImuQuat {
+                w: self.quat[0].into(),
+                x: self.quat[1].into(),
+                y: self.quat[2].into(),
+                z: self.quat[3].into(),
+            }),
+            _ => unreachable!(),
+        }
+    }
+
+    /// Rotate the internal gravity vector by the current orientation.
+    ///
+    /// # Returns
+    /// - Direction of gravity in the body frame.
+    #[inline]
+    fn get_gravity_vector(&self) -> [f32; 3] {
+        let [qw, qx, qy, qz] = self.quat;
+        [
+            2.0 * (qx * qz - qw * qy) * GRAVITY,
+            2.0 * (qw * qx + qy * qz) * GRAVITY,
+            (qw * qw - qx * qx - qy * qy + qz * qz) * GRAVITY,
+        ]
+    }
+
+    /// Integrate gyroscope readings in order to get quaternion.
+    ///
+    /// # Parameters
+    /// - `dt` - given delta time in seconds.
+    fn integrate_gyro(&mut self, dt: f32) {
+        let [w, x, y, z] = self.quat;
+        let [gx, gy, gz] = self.gyr;
+
+        let nw = w + 0.5 * dt * (-x * gx - y * gy - z * gz);
+        let nx = x + 0.5 * dt * ( w * gx + y * gz - z * gy);
+        let ny = y + 0.5 * dt * ( w * gy - x * gz + z * gx);
+        let nz = z + 0.5 * dt * ( w * gz + x * gy - y * gx);
+
+        let norm = (nw*nw + nx*nx + ny*ny + nz*nz).sqrt();
+        self.quat = [nw / norm, nx / norm, ny / norm, nz / norm];
     }
 }
