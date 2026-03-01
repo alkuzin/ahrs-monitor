@@ -6,9 +6,12 @@
 mod simulator;
 mod utils;
 
-use log::LevelFilter;
 use crate::simulator::Simulator;
-use ahrs_monitor::{config::{self, load_config}, init_logging};
+use ahrs_monitor::{
+    config::{self, load_config},
+    init_logging,
+};
+use log::LevelFilter;
 
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {

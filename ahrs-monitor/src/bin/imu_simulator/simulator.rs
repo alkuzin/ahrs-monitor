@@ -1,15 +1,18 @@
 // SPDX-License-Identifier: Apache-2.0.
 // Copyright (C) 2026-present ahrs-monitor project and contributors.
 
+use crate::utils::ImuSimulator;
 /// IMU data transmission simulation implementation.
-
-use ahrs_monitor::{config::{self, AppConfig}};
-use indtp::{Frame, Mode, engines::{SwCryptoEngine, SwIntegrityEngine}, types::CryptoKeys};
+use ahrs_monitor::config::{self, AppConfig};
+use indtp::{
+    Frame, Mode,
+    engines::{SwCryptoEngine, SwIntegrityEngine},
+    types::CryptoKeys,
+};
 use tokio::{
     net::UdpSocket,
     time::{Duration, Instant},
 };
-use crate::utils::ImuSimulator;
 
 /// IMU data transmission simulator.
 pub struct Simulator {
@@ -74,14 +77,26 @@ impl Simulator {
         let mut sequence = 0u16;
         let device_id = 0xAA;
         let payload_type = self.cfg.imu.payload_type();
-        let mode = Mode::try_from(self.cfg.imu.protocol_mode)
-            .unwrap_or(Mode::Lite);
+        let mode =
+            Mode::try_from(self.cfg.imu.protocol_mode).unwrap_or(Mode::Lite);
 
         let mut frame = match mode {
-            Mode::Lite => Frame::new_lite(&mut buffer, device_id, payload_type.as_u8()),
-            Mode::Verified => Frame::new_verified(&mut buffer, device_id, payload_type.as_u8()),
-            Mode::Trusted => Frame::new_trusted(&mut buffer, device_id, payload_type.as_u8()),
-            Mode::Critical => Frame::new_critical(&mut buffer, device_id, payload_type.as_u8()),
+            Mode::Lite => {
+                Frame::new_lite(&mut buffer, device_id, payload_type.as_u8())
+            }
+            Mode::Verified => Frame::new_verified(
+                &mut buffer,
+                device_id,
+                payload_type.as_u8(),
+            ),
+            Mode::Trusted => {
+                Frame::new_trusted(&mut buffer, device_id, payload_type.as_u8())
+            }
+            Mode::Critical => Frame::new_critical(
+                &mut buffer,
+                device_id,
+                payload_type.as_u8(),
+            ),
         }?;
 
         let metrics = self.cfg.imu.metrics;
@@ -97,7 +112,8 @@ impl Simulator {
             let timestamp = start_time.elapsed().as_micros() as u32;
             frame.push_single_sample(timestamp, payload.to_bytes())?;
 
-            let _ = frame.pack::<SwIntegrityEngine, SwCryptoEngine>(Some(&self.keys))?;
+            let _ = frame
+                .pack::<SwIntegrityEngine, SwCryptoEngine>(Some(&self.keys))?;
             let raw_frame = frame.frame()?;
             socket.send_to(raw_frame, &self.monitor_addr).await?;
 

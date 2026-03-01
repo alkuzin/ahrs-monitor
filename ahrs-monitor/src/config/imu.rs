@@ -3,11 +3,11 @@
 
 //! Inertial Measurement Unit (IMU) configurations.
 
-use indtp::payload::PayloadType;
 use crate::{
     app_config,
     config::{Deserialize, Serialize},
 };
+use indtp::payload::PayloadType;
 
 app_config! {
     /// IMU configurations.
@@ -111,9 +111,7 @@ impl From<PayloadType> for ImuMetrics {
                 quat: true,
                 ..Self::default()
             },
-            PayloadType::Reserved(_) => unreachable!(
-                "PayloadType::Reserved should never be used"
-            ),
+            PayloadType::Reserved(_) => Self::default(),
         }
     }
 }

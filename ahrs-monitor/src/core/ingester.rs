@@ -3,20 +3,20 @@
 
 //! IMU communication handler.
 
+use crate::core::StandardPayload;
+use crate::model::FrameWrapper;
 use crate::{
     config::{self, AppConfig},
     core::attitude::{AttitudeEstimator, estimate_attitude},
     model::{AppEvent, FrameContext},
 };
-use tokio::{net::UdpSocket, sync::mpsc::Sender, time};
-use tsilna_nav::math::Quat32;
-use indtp::{MTU_SIZE, Frame};
 use indtp::engines::{SwCryptoEngine, SwIntegrityEngine};
 use indtp::payload::PayloadType;
 use indtp::types::CryptoKeys;
 use indtp::utils::is_sequence_correct;
-use crate::core::StandardPayload;
-use crate::model::FrameWrapper;
+use indtp::{Frame, MTU_SIZE};
+use tokio::{net::UdpSocket, sync::mpsc::Sender, time};
+use tsilna_nav::math::Quat32;
 
 /// Mediator between AHRS monitor and IMU.
 pub struct Ingester {
@@ -68,6 +68,7 @@ impl Ingester {
     /// - Error to sending data over MPSC.
     /// - IDTP frame parsing error.
     /// - Receiving data over Wi-Fi error.
+    #[allow(clippy::indexing_slicing)]
     pub async fn run(&mut self) -> anyhow::Result<()> {
         log::info!("Running Ingester");
 
@@ -115,13 +116,13 @@ impl Ingester {
                                 }
 
                                 if let Ok((timestamp, payload)) = frame.read_single_sample() {
-                                    let payload = StandardPayload::try_from(&payload, payload_type);
+                                    let payload = StandardPayload::try_from(payload, payload_type);
 
-                                    frame_ctx.quaternion = Some(self.estimate_attitude(timestamp, &payload));
+                                    frame_ctx.quaternion = Some(self.estimate_attitude(timestamp, Option::from(&payload)));
                                     self.prev_sequence = Some(recv_seq);
 
                                     let frame_wrapper = FrameWrapper {
-                                        header: frame.header().clone(),
+                                        header: *frame.header(),
                                         payload,
                                         trailer: frame.trailer()?.to_vec(),
                                         size: frame.size(),
@@ -165,7 +166,11 @@ impl Ingester {
     /// # Returns
     /// - Attitude in quaternion representation - in case of success.
     /// - `None` - otherwise.
-    fn estimate_attitude(&mut self, timestamp: u32, payload: &Option<StandardPayload>) -> Quat32 {
+    fn estimate_attitude(
+        &mut self,
+        timestamp: u32,
+        payload: Option<&StandardPayload>,
+    ) -> Quat32 {
         let default_dt = 1.0 / self.cfg.imu.sample_rate;
         let current_timestamp_us = timestamp;
 

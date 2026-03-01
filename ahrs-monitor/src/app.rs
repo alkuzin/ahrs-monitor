@@ -352,7 +352,7 @@ impl App {
                     self.handle_update_connection_status(status);
                 }
                 AppEvent::FrameReceived(frame_ctx) => {
-                    self.handle_received_frame(frame_ctx);
+                    self.handle_received_frame(*frame_ctx);
                 }
             }
         }
@@ -371,8 +371,8 @@ impl App {
     ///
     /// # Parameters
     /// - `frame_ctx` - given new frame context info.
-    fn handle_received_frame(&mut self, frame_ctx: Box<FrameContext>) {
-        let shared_ctx = Arc::new(*frame_ctx);
+    fn handle_received_frame(&mut self, frame_ctx: FrameContext) {
+        let shared_ctx = Arc::new(frame_ctx);
 
         self.history.push_back(Arc::clone(&shared_ctx));
 
@@ -419,7 +419,7 @@ impl App {
                     let e = quat.euler_angles();
                     (quat.w, quat.i, quat.j, quat.k, e.0, e.1, e.2)
                 });
-            
+
             let mut record = LogRecord {
                 timestamp: frame_ctx.timestamp,
                 device_id: header.device_id,

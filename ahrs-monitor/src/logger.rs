@@ -5,11 +5,9 @@
 
 use crate::config::AppConfig;
 use chrono::Local;
+use indtp::payload::{Imu3Acc, Imu3Gyr, Imu3Mag, Imu6, Imu9, Imu10, ImuQuat};
 use serde::{Deserialize, Serialize};
 use std::{fs, path::PathBuf};
-use indtp::payload::{
-    Imu3Acc, Imu3Gyr, Imu3Mag, Imu6, Imu9, Imu10, ImuQuat,
-};
 
 #[derive(Debug, Default, Serialize, Deserialize)]
 /// IMU data log record.

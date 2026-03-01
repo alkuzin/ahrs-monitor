@@ -4,9 +4,11 @@
 //! Utils for IMU simulator.
 
 use ahrs_monitor::{config::ImuMetrics, core::StandardPayload};
-use indtp::payload::{Imu10, Imu3Acc, Imu3Gyr, Imu3Mag, Imu6, Imu9, ImuQuat, PayloadType};
+use indtp::payload::{
+    Imu3Acc, Imu3Gyr, Imu3Mag, Imu6, Imu9, Imu10, ImuQuat, PayloadType,
+};
 use rand::prelude::*;
-use rand_distr::{Normal, Distribution};
+use rand_distr::{Distribution, Normal};
 
 /// Earth's standard gravity in meters per second squared.
 const GRAVITY: f32 = 9.80665;
@@ -65,7 +67,12 @@ impl ImuSimulator {
     ///
     /// # Returns
     /// - Next generated set of IMU readings.
-    pub fn next_payload(&mut self, dt: f32, payload_type: &PayloadType, metrics: &ImuMetrics) -> StandardPayload {
+    pub fn next_payload(
+        &mut self,
+        dt: f32,
+        payload_type: &PayloadType,
+        metrics: &ImuMetrics,
+    ) -> StandardPayload {
         self.time += dt;
 
         // Generating gyroscope readings.
@@ -84,11 +91,11 @@ impl ImuSimulator {
         // Generating accelerometer readings.
         let (acc_x, acc_y, acc_z) = if metrics.acc {
             let gravity = self.get_gravity_vector();
-            let mut jitter = || { (self.next_f32() - 0.5) * 2.3 };
+            let mut jitter = || (self.next_f32() - 0.5) * 2.3;
             (
                 gravity[0] + jitter(),
                 gravity[1] + jitter(),
-                gravity[2] + jitter()
+                gravity[2] + jitter(),
             )
         } else {
             (0.0, 0.0, 0.0)
@@ -96,7 +103,11 @@ impl ImuSimulator {
 
         // Generating magnetometer readings.
         let (mag_x, mag_y, mag_z) = if metrics.mag {
-            (25.0 + self.next_f32(), -15.0 + self.next_f32(), -40.0 + self.next_f32())
+            (
+                25.0 + self.next_f32(),
+                -15.0 + self.next_f32(),
+                -40.0 + self.next_f32(),
+            )
         } else {
             (0.0, 0.0, 0.0)
         };
@@ -108,27 +119,65 @@ impl ImuSimulator {
 
         match payload_type {
             PayloadType::Imu3Acc => StandardPayload::Imu3Acc(Imu3Acc {
-                acc_x: acc_x.into(), acc_y: acc_y.into(), acc_z: acc_z.into(),
+                acc_x: acc_x.into(),
+                acc_y: acc_y.into(),
+                acc_z: acc_z.into(),
             }),
             PayloadType::Imu3Gyr => StandardPayload::Imu3Gyr(Imu3Gyr {
-                gyr_x: self.gyr[0].into(), gyr_y: self.gyr[1].into(), gyr_z: self.gyr[2].into(),
+                gyr_x: self.gyr[0].into(),
+                gyr_y: self.gyr[1].into(),
+                gyr_z: self.gyr[2].into(),
             }),
             PayloadType::Imu3Mag => StandardPayload::Imu3Mag(Imu3Mag {
-                mag_x: mag_x.into(), mag_y: mag_y.into(), mag_z: mag_z.into(),
+                mag_x: mag_x.into(),
+                mag_y: mag_y.into(),
+                mag_z: mag_z.into(),
             }),
             PayloadType::Imu6 => StandardPayload::Imu6(Imu6 {
-                acc: Imu3Acc { acc_x: acc_x.into(), acc_y: acc_y.into(), acc_z: acc_z.into() },
-                gyr: Imu3Gyr { gyr_x: self.gyr[0].into(), gyr_y: self.gyr[1].into(), gyr_z: self.gyr[2].into() },
+                acc: Imu3Acc {
+                    acc_x: acc_x.into(),
+                    acc_y: acc_y.into(),
+                    acc_z: acc_z.into(),
+                },
+                gyr: Imu3Gyr {
+                    gyr_x: self.gyr[0].into(),
+                    gyr_y: self.gyr[1].into(),
+                    gyr_z: self.gyr[2].into(),
+                },
             }),
             PayloadType::Imu9 => StandardPayload::Imu9(Imu9 {
-                acc: Imu3Acc { acc_x: acc_x.into(), acc_y: acc_y.into(), acc_z: acc_z.into() },
-                gyr: Imu3Gyr { gyr_x: self.gyr[0].into(), gyr_y: self.gyr[1].into(), gyr_z: self.gyr[2].into() },
-                mag: Imu3Mag { mag_x: mag_x.into(), mag_y: mag_y.into(), mag_z: mag_z.into() },
+                acc: Imu3Acc {
+                    acc_x: acc_x.into(),
+                    acc_y: acc_y.into(),
+                    acc_z: acc_z.into(),
+                },
+                gyr: Imu3Gyr {
+                    gyr_x: self.gyr[0].into(),
+                    gyr_y: self.gyr[1].into(),
+                    gyr_z: self.gyr[2].into(),
+                },
+                mag: Imu3Mag {
+                    mag_x: mag_x.into(),
+                    mag_y: mag_y.into(),
+                    mag_z: mag_z.into(),
+                },
             }),
             PayloadType::Imu10 => StandardPayload::Imu10(Imu10 {
-                acc: Imu3Acc { acc_x: acc_x.into(), acc_y: acc_y.into(), acc_z: acc_z.into() },
-                gyr: Imu3Gyr { gyr_x: self.gyr[0].into(), gyr_y: self.gyr[1].into(), gyr_z: self.gyr[2].into() },
-                mag: Imu3Mag { mag_x: mag_x.into(), mag_y: mag_y.into(), mag_z: mag_z.into() },
+                acc: Imu3Acc {
+                    acc_x: acc_x.into(),
+                    acc_y: acc_y.into(),
+                    acc_z: acc_z.into(),
+                },
+                gyr: Imu3Gyr {
+                    gyr_x: self.gyr[0].into(),
+                    gyr_y: self.gyr[1].into(),
+                    gyr_z: self.gyr[2].into(),
+                },
+                mag: Imu3Mag {
+                    mag_x: mag_x.into(),
+                    mag_y: mag_y.into(),
+                    mag_z: mag_z.into(),
+                },
                 baro: self.last_baro.into(),
             }),
             PayloadType::ImuQuat => StandardPayload::ImuQuat(ImuQuat {
@@ -164,11 +213,11 @@ impl ImuSimulator {
         let [gx, gy, gz] = self.gyr;
 
         let nw = w + 0.5 * dt * (-x * gx - y * gy - z * gz);
-        let nx = x + 0.5 * dt * ( w * gx + y * gz - z * gy);
-        let ny = y + 0.5 * dt * ( w * gy - x * gz + z * gx);
-        let nz = z + 0.5 * dt * ( w * gz + x * gy - y * gx);
+        let nx = x + 0.5 * dt * (w * gx + y * gz - z * gy);
+        let ny = y + 0.5 * dt * (w * gy - x * gz + z * gx);
+        let nz = z + 0.5 * dt * (w * gz + x * gy - y * gx);
 
-        let norm = (nw*nw + nx*nx + ny*ny + nz*nz).sqrt();
+        let norm = (nw * nw + nx * nx + ny * ny + nz * nz).sqrt();
         self.quat = [nw / norm, nx / norm, ny / norm, nz / norm];
     }
 }

@@ -7,14 +7,12 @@
 pub mod attitude;
 mod ingester;
 
-pub use ingester::Ingester;
+use indtp::payload::PayloadType;
 use indtp::{
-    payload::{
-        Payload, Imu3Acc, Imu3Gyr, Imu3Mag, Imu6, Imu9, Imu10, ImuQuat,
-    },
+    payload::{Imu3Acc, Imu3Gyr, Imu3Mag, Imu6, Imu9, Imu10, ImuQuat, Payload},
     types::Packable,
 };
-use indtp::payload::PayloadType;
+pub use ingester::Ingester;
 
 /// INDTP standard payload enumeration.
 #[derive(Debug)]
@@ -84,32 +82,33 @@ impl StandardPayload {
         match payload_type {
             PayloadType::Imu3Acc => {
                 Imu3Acc::from_bytes(payload).ok().map(Self::Imu3Acc)
-            },
+            }
             PayloadType::Imu3Gyr => {
                 Imu3Gyr::from_bytes(payload).ok().map(Self::Imu3Gyr)
-            },
+            }
             PayloadType::Imu3Mag => {
                 Imu3Mag::from_bytes(payload).ok().map(Self::Imu3Mag)
-            },
-            PayloadType::Imu6 => {
-                Imu6::from_bytes(payload).ok().map(Self::Imu6)
-            },
+            }
+            PayloadType::Imu6 => Imu6::from_bytes(payload).ok().map(Self::Imu6),
             PayloadType::Imu9 => Imu9::from_bytes(payload).ok().map(Self::Imu9),
-            PayloadType::Imu10 => Imu10::from_bytes(payload).ok().map(Self::Imu10),
+            PayloadType::Imu10 => {
+                Imu10::from_bytes(payload).ok().map(Self::Imu10)
+            }
             PayloadType::ImuQuat => {
                 ImuQuat::from_bytes(payload).ok().map(Self::ImuQuat)
             }
-            _ => None,
+            PayloadType::Reserved(_) => None,
         }
     }
 
     /// Get payload length from payload type.
-    /// 
+    ///
     /// # Parameters
     /// - `payload_type` - given payload type to handle.
-    /// 
+    ///
     /// # Returns
     /// - Payload length in bytes.
+    #[must_use]
     pub fn len_from(payload_type: PayloadType) -> usize {
         match payload_type {
             PayloadType::Imu3Acc => Imu3Acc::len(),
@@ -122,5 +121,4 @@ impl StandardPayload {
             PayloadType::Reserved(_) => 0,
         }
     }
-
 }

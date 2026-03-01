@@ -9,10 +9,10 @@ mod net;
 
 use crate::{app_config, config::logging::LoggingConfig};
 pub use imu::*;
+use indtp::payload::PayloadType;
 pub use net::*;
 use serde::{Deserialize, Serialize};
 use std::{fs, process};
-use indtp::payload::PayloadType;
 
 /// Window width in pixels.
 pub const APP_WINDOW_WIDTH: f32 = 1024.0;

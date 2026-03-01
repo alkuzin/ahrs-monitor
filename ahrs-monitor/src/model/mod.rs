@@ -3,9 +3,9 @@
 
 //! Application state module.
 
-use tsilna_nav::math::Quat32;
-use indtp::{Flags, Header};
 use crate::core::StandardPayload;
+use indtp::{Flags, Header};
+use tsilna_nav::math::Quat32;
 
 /// TODO:
 #[derive(Default, Debug)]
