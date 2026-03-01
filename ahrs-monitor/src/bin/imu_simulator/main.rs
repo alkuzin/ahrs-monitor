@@ -7,33 +7,36 @@ mod simulator;
 mod utils;
 
 use log::LevelFilter;
-use crate::simulator::ImuSimulator;
-use ahrs_monitor::config::{self, load_config};
-use ahrs_monitor::init_logging;
+use crate::simulator::Simulator;
+use ahrs_monitor::{config::{self, load_config}, init_logging};
 
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
-    println!("TEST");
     init_logging(LevelFilter::Info);
     log::info!("Initialized IMU simulator");
 
     if let Err(e) = run_simulator().await {
-        eprintln!("Simulator exited unexpectedly: {e}");
+        log::error!("Simulator exited unexpectedly: {e}");
     }
 
     Ok(())
 }
 
+/// Run IMU simulator.
+///
+/// # Returns
+/// - `Ok` - in case of success.
+/// - `Err` - otherwise.
+///
+/// # Errors
+/// - I/O errors.
 async fn run_simulator() -> anyhow::Result<()> {
-    println!("TEST");
     let app_config = load_config(config::CONFIG_FILE_PATH);
 
-    println!("TEST");
-    println!("Setting simulator...");
-    let imu_simulator = ImuSimulator::new(app_config);
+    log::info!("Setting simulator...");
+    let mut sim = Simulator::new(app_config)?;
 
-    println!("Simulating IMU data transmission over UDP");
-    imu_simulator.simulate_udp_transmission().await?;
-
+    log::info!("Simulating IMU data transmission over UDP");
+    sim.simulate_udp_transmission().await?;
     Ok(())
 }
