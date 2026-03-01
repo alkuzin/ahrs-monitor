@@ -3,40 +3,92 @@
 
 //! Utils for AHRS Monitor user interface.
 
+use crate::{core::StandardPayload, model::FrameWrapper};
 use eframe::epaint::Color32;
 use egui::RichText;
 use egui_plot::{Corner, Legend, Line, Plot, PlotPoints};
-use std::collections::VecDeque;
 use indtp::types::F32;
-use crate::{core::StandardPayload, model::FrameWrapper};
+use std::collections::VecDeque;
 
-/// Display custom metric.
+/// Custom metric struct.
+pub struct Metric<'a> {
+    /// Metric name.
+    pub name: &'a str,
+    /// Metric value.
+    pub value: &'a str,
+    /// Measurement unit.
+    pub unit: Option<&'a str>,
+    /// Metric value text color.
+    pub color: Option<Color32>,
+}
+
+impl<'a> Metric<'a> {
+    /// Construct new custom metric.
+    ///
+    /// # Parameters
+    /// - `name` - given metric name.
+    /// - `value` - given metric value.
+    /// - `unit` - given metric measurement unit.
+    /// - `color` - given metric value text color.
+    ///
+    /// # Returns
+    /// - New custom metric.
+    #[must_use]
+    #[inline]
+    pub const fn new(
+        name: &'a str,
+        value: &'a str,
+        unit: Option<&'a str>,
+        color: Option<Color32>,
+    ) -> Self {
+        Self {
+            name,
+            value,
+            unit,
+            color,
+        }
+    }
+
+    /// Display custom metric.
+    ///
+    /// # Parameters
+    /// - `ui` - given screen UI handler.
+    pub fn display(&self, ui: &mut egui::Ui) {
+        ui.horizontal(|ui| {
+            let color = self.color.unwrap_or(Color32::WHITE);
+
+            ui.label(self.name);
+            ui.label(RichText::new(self.value).color(color));
+
+            if let Some(unit) = &self.unit {
+                ui.label(*unit);
+            }
+        });
+
+        ui.separator();
+    }
+}
+
+/// Display group of metrics.
 ///
 /// # Parameters
 /// - `ui` - given screen UI handler.
-/// - `name` - given metric name.
-/// - `value` - given metric value.
+/// - `label` - given metric group label.
+/// - `values` - given metric values.
 /// - `unit` - given metric measurement unit.
-/// - `color` - given metric value text color.
-pub fn display_metric(
+pub fn display_metric_group(
     ui: &mut egui::Ui,
-    name: &str,
-    value: &impl ToString,
+    label: &str,
+    values: &[f32],
     unit: Option<&str>,
-    color: Option<Color32>,
 ) {
-    ui.horizontal(|ui| {
-        let color = color.unwrap_or(Color32::WHITE);
+    let axes = ["X", "Y", "Z", "W"];
 
-        ui.label(name);
-        ui.label(RichText::new(value.to_string()).color(color));
-
-        if let Some(unit) = unit {
-            ui.label(unit);
-        }
-    });
-
-    ui.separator();
+    for (i, &val) in values.iter().enumerate() {
+        let name = format!("{} {}:", label, axes.get(i).unwrap_or(&"?"));
+        let value_str = format!("{val:.6}");
+        Metric::new(&name, &value_str, unit, None).display(ui);
+    }
 }
 
 /// Metrics plotter struct.
@@ -185,39 +237,48 @@ pub fn extract_readings(frame: &FrameWrapper) -> [f32; 10] {
         res[..len].copy_from_slice(&src[..len]);
         res
     };
-    
-    let data = if let Some(payload) = &frame.payload {
-        match payload {
+
+    let data = frame.payload.as_ref().map_or_else(
+        || [0.0.into(); 10],
+        |payload| match payload {
             StandardPayload::Imu3Acc(p) => pad(&[p.acc_x, p.acc_y, p.acc_z]),
             StandardPayload::Imu3Gyr(p) => pad(&[p.gyr_x, p.gyr_y, p.gyr_z]),
             StandardPayload::Imu3Mag(p) => pad(&[p.mag_x, p.mag_y, p.mag_z]),
-            StandardPayload::Imu6(p) => {
-                pad(&[
-                    p.acc.acc_x, p.acc.acc_y, p.acc.acc_z,
-                    p.gyr.gyr_x, p.gyr.gyr_y, p.gyr.gyr_z,
-                ])
-            },
-            StandardPayload::Imu9(p) => {
-                pad(&[
-                    p.acc.acc_x, p.acc.acc_y, p.acc.acc_z,
-                    p.gyr.gyr_x, p.gyr.gyr_y, p.gyr.gyr_z,
-                    p.mag.mag_x, p.mag.mag_y, p.mag.mag_z,
-                ])
-            },
-            StandardPayload::Imu10(p) => {
-                pad(&[
-                    p.acc.acc_x, p.acc.acc_y, p.acc.acc_z,
-                    p.gyr.gyr_x, p.gyr.gyr_y, p.gyr.gyr_z,
-                    p.mag.mag_x, p.mag.mag_y, p.mag.mag_z,
-                    p.baro,
-                ])
-            },
+            StandardPayload::Imu6(p) => pad(&[
+                p.acc.acc_x,
+                p.acc.acc_y,
+                p.acc.acc_z,
+                p.gyr.gyr_x,
+                p.gyr.gyr_y,
+                p.gyr.gyr_z,
+            ]),
+            StandardPayload::Imu9(p) => pad(&[
+                p.acc.acc_x,
+                p.acc.acc_y,
+                p.acc.acc_z,
+                p.gyr.gyr_x,
+                p.gyr.gyr_y,
+                p.gyr.gyr_z,
+                p.mag.mag_x,
+                p.mag.mag_y,
+                p.mag.mag_z,
+            ]),
+            StandardPayload::Imu10(p) => pad(&[
+                p.acc.acc_x,
+                p.acc.acc_y,
+                p.acc.acc_z,
+                p.gyr.gyr_x,
+                p.gyr.gyr_y,
+                p.gyr.gyr_z,
+                p.mag.mag_x,
+                p.mag.mag_y,
+                p.mag.mag_z,
+                p.baro,
+            ]),
             StandardPayload::ImuQuat(p) => pad(&[p.w, p.x, p.y, p.x]),
-        }
-    } else {
-        [0.0.into(); 10]
-    };
+        },
+    );
 
-    let data: [f32; 10] = data.map(|x| x.get());
+    let data: [f32; 10] = data.map(F32::get);
     data
 }

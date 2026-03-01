@@ -3,13 +3,11 @@
 
 //! Dashboard tab user interface implementation.
 
+use crate::ui::utils::Metric;
 use crate::{
     config::AppConfig,
     model::FrameContext,
-    ui::{
-        TabViewer,
-        utils::{Plotter, display_metric},
-    },
+    ui::{TabViewer, utils::Plotter},
 };
 use eframe::epaint::Stroke;
 use egui::{Align2, Color32, FontId, Pos2, Sense, vec2};
@@ -157,28 +155,34 @@ impl DashboardTab {
                 ui.vertical(|ui| {
                     if let Some(data) = self.plotter.last_data() {
                         let (roll, pitch, yaw) = (data[0], data[1], data[2]);
+                        let r = &format!("{roll:.2}");
+                        let p = &format!("{pitch:.2}");
+                        let y = &format!("{yaw:.2}");
 
-                        display_metric(
-                            ui,
-                            "Roll:",
-                            &format!("{roll:.2}"),
-                            Some("rad"),
-                            Some(ROLL_COLOR),
-                        );
-                        display_metric(
-                            ui,
-                            "Pitch:",
-                            &format!("{pitch:.2}"),
-                            Some("rad"),
-                            Some(PITCH_COLOR),
-                        );
-                        display_metric(
-                            ui,
-                            "Yaw:",
-                            &format!("{yaw:.2}"),
-                            Some("rad"),
-                            Some(YAW_COLOR),
-                        );
+                        let metrics_args: Vec<Metric> = vec![
+                            Metric::new(
+                                "Roll:",
+                                r,
+                                Some("rad"),
+                                Some(ROLL_COLOR),
+                            ),
+                            Metric::new(
+                                "Pitch:",
+                                p,
+                                Some("rad"),
+                                Some(PITCH_COLOR),
+                            ),
+                            Metric::new(
+                                "Yaw:",
+                                y,
+                                Some("rad"),
+                                Some(YAW_COLOR),
+                            ),
+                        ];
+
+                        for m in &metrics_args {
+                            m.display(ui);
+                        }
                     }
                 });
             });
@@ -191,34 +195,21 @@ impl DashboardTab {
 
             ui.group(|ui| {
                 ui.vertical(|ui| {
-                    display_metric(
-                        ui,
-                        "w:",
-                        &format!("{:.6}", quaternion.w),
-                        None,
-                        Some(Color32::LIGHT_YELLOW),
-                    );
-                    display_metric(
-                        ui,
-                        "x:",
-                        &format!("{:.6}", quaternion.i),
-                        None,
-                        Some(Color32::LIGHT_RED),
-                    );
-                    display_metric(
-                        ui,
-                        "y:",
-                        &format!("{:.6}", quaternion.j),
-                        None,
-                        Some(Color32::LIGHT_GREEN),
-                    );
-                    display_metric(
-                        ui,
-                        "z:",
-                        &format!("{:.6}", quaternion.k),
-                        None,
-                        Some(Color32::LIGHT_BLUE),
-                    );
+                    let w = &format!("{:.6}", quaternion.w);
+                    let x = &format!("{:.6}", quaternion.i);
+                    let y = &format!("{:.6}", quaternion.j);
+                    let z = &format!("{:.6}", quaternion.k);
+
+                    let metrics_args: Vec<Metric> = vec![
+                        Metric::new("w:", w, None, Some(Color32::LIGHT_YELLOW)),
+                        Metric::new("x:", x, None, Some(Color32::LIGHT_RED)),
+                        Metric::new("y:", y, None, Some(Color32::LIGHT_GREEN)),
+                        Metric::new("z:", z, None, Some(Color32::LIGHT_BLUE)),
+                    ];
+
+                    for m in &metrics_args {
+                        m.display(ui);
+                    }
                 });
             });
         });

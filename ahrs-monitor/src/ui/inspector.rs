@@ -3,22 +3,24 @@
 
 //! Packet inspector tab user interface implementation.
 
+use crate::ui::utils::display_metric_group;
 use crate::{
     config::AppConfig,
-    model::FrameContext,
+    core::StandardPayload,
+    model::{FrameContext, FrameWrapper},
     ui::{
         TabViewer,
-        utils::{display_metric, extract_readings},
+        utils::{Metric, extract_readings},
     },
 };
 use eframe::epaint::Color32;
 use egui::{Layout, RichText};
+use indtp::{
+    Mode,
+    payload::{Imu6, PayloadType},
+    types::Packable,
+};
 use std::fmt::Write;
-use indtp::{Mode, payload::PayloadType};
-use indtp::payload::Imu6;
-use indtp::types::Packable;
-use crate::core::StandardPayload;
-use crate::model::FrameWrapper;
 
 /// Packet inspector tab handler.
 pub struct InspectorTab;
@@ -59,7 +61,11 @@ impl TabViewer for InspectorTab {
                 let desired_size = egui::vec2(512.0, ui.available_height());
                 ui.allocate_ui(desired_size, |ui| {
                     if let Some(frame) = &frame_ctx.frame {
-                        col_height = display_hex_dump_column(ui, &frame, frame_ctx.is_valid);
+                        col_height = display_hex_dump_column(
+                            ui,
+                            frame,
+                            frame_ctx.is_valid,
+                        );
                     }
                 });
 
@@ -90,7 +96,6 @@ fn display_hex_dump_column(
     is_valid: bool,
 ) -> f32 {
     let header = frame.header;
-
     let preamble = header.preamble.to_bytes();
     let preamble = std::str::from_utf8(&preamble).unwrap_or("Unknown");
     let version = header.version;
@@ -99,58 +104,65 @@ fn display_hex_dump_column(
     let flags = header.flags();
     let sequence = header.sequence;
     let device_id = header.device_id;
-    let payload_size = header.payload_len;
+    let payload_len = header.payload_len;
     let version = format!("v{version_major}.{version_minor}");
     let payload_type = header.payload_type;
     let crc = header.crc;
 
     let (mode_label, mode_color) = {
-        flags.mode().map_or(("Unknown", Color32::GRAY), |mode| {
-            match mode {
-                Mode::Lite => ("Lite", Color32::CYAN),
-                Mode::Verified => ("Verified (CRC-32)", Color32::LIGHT_BLUE),
-                Mode::Trusted => ("Trusted (CMAC-AES-128)", Color32::MAGENTA),
-                Mode::Critical => ("Critical (HMAC-SHA256)", Color32::LIGHT_RED),
-            }
-        })
+        flags
+            .mode()
+            .map_or(("Unknown", Some(Color32::GRAY)), |mode| match mode {
+                Mode::Lite => ("Lite", Some(Color32::CYAN)),
+                Mode::Verified => {
+                    ("Verified (CRC-32)", Some(Color32::LIGHT_BLUE))
+                }
+                Mode::Trusted => {
+                    ("Trusted (CMAC-AES-128)", Some(Color32::MAGENTA))
+                }
+                Mode::Critical => {
+                    ("Critical (HMAC-SHA256)", Some(Color32::LIGHT_RED))
+                }
+            })
     };
 
+    let flags_label = &format!("{:#02X}", &flags.bits());
+    let device_id_label = &format!("{device_id:#02X}");
+    let payload_type_label = &format!("{payload_type:#02X}");
+    let sequence_label = &sequence.to_string();
+    let payload_len = &payload_len.to_string();
+    let crc_label = &format!("{crc:#04X}");
+
     let (batch_label, batch_color) = if flags.is_batch() {
-        ("Data aggregation mode is enabled", Color32::GREEN)
+        ("Data aggregation mode is enabled", Some(Color32::GREEN))
     } else {
-        ("Data aggregation mode is disabled", Color32::GRAY)
+        ("Data aggregation mode is disabled", Some(Color32::GRAY))
     };
 
     let (encrypt_label, encrypt_color) = if flags.is_encrypted() {
-        ("Payload is encrypted", Color32::GREEN)
+        ("Payload is encrypted", Some(Color32::GREEN))
     } else {
-        ("Payload is not encrypted", Color32::YELLOW)
+        ("Payload is not encrypted", Some(Color32::YELLOW))
     };
 
     let (priority_label, priority_color) = if flags.is_high_priority() {
-        ("Frame has high priority", Color32::YELLOW)
+        ("Frame has high priority", Some(Color32::YELLOW))
     } else {
-        ("Frame has low priority", Color32::GRAY)
+        ("Frame has low priority", Some(Color32::GRAY))
     };
 
     let (valid_label, valid_color) = if is_valid {
-        ("VALID", Color32::GREEN)
+        ("VALID", Some(Color32::GREEN))
     } else {
-        ("INVALID", Color32::RED)
+        ("INVALID", Some(Color32::RED))
     };
 
     let col1_rect = ui.with_layout(Layout::top_down(egui::Align::LEFT), |ui| {
         // Displaying hex dump of the frame bytes.
         ui.group(|ui| {
             let mut raw_frame = Vec::with_capacity(frame.size);
-
-            // 1. Get a reference to the payload if it exists
             let payload = frame.payload.as_ref();
-
-            // 2. Define your fallback (default) data
             let default_payload = StandardPayload::Imu6(Imu6::default());
-
-            // 3. Select which one to use without moving
             let payload = payload.unwrap_or(&default_payload);
 
             raw_frame.extend_from_slice(frame.header.to_bytes());
@@ -162,39 +174,27 @@ fn display_hex_dump_column(
 
         ui.add_space(16.0);
 
-        // Displaying IDTP header info.
+        let metrics_args: Vec<Metric> = vec![
+            Metric::new("Frame: is", valid_label, None, valid_color),
+            Metric::new("Preamble:", preamble, None, None),
+            Metric::new("Version:", &version, None, None),
+            Metric::new("Flags:", flags_label, None, None),
+            Metric::new("Protocol Mode:", mode_label, None, mode_color),
+            Metric::new("Batch:", batch_label, None, batch_color),
+            Metric::new("Encryption:", encrypt_label, None, encrypt_color),
+            Metric::new("Priority:", priority_label, None, priority_color),
+            Metric::new("Device ID:", device_id_label, None, None),
+            Metric::new("Payload Type:", payload_type_label, None, None),
+            Metric::new("Sequence:", sequence_label, None, None),
+            Metric::new("Payload Length:", payload_len, Some("bytes"), None),
+            Metric::new("CRC:", crc_label, None, None),
+        ];
+
+        // Displaying protocol header info.
         ui.group(|ui| {
-            display_metric(
-                ui,
-                "Frame: is",
-                &valid_label,
-                None,
-                Some(valid_color),
-            );
-            display_metric(ui, "Preamble:", &preamble, None, None);
-            display_metric(ui, "Version:", &version, None, None);
-            display_metric(ui, "Flags:", &flags.bits(), None, None);
-            display_metric(
-                ui,
-                "Protocol Mode:",
-                &mode_label,
-                None,
-                Some(mode_color),
-            );
-            display_metric(ui, "Batch:", &batch_label, None, Some(batch_color));
-            display_metric(ui, "Encryption:", &encrypt_label, None, Some(encrypt_color));
-            display_metric(ui, "Priority:", &priority_label, None, Some(priority_color));
-            display_metric(ui, "Device ID:", &device_id, None, None);
-            display_metric(ui, "Payload Type:", &payload_type, None, None);
-            display_metric(ui, "Sequence:", &sequence, None, None);
-            display_metric(
-                ui,
-                "Payload Length:",
-                &payload_size,
-                Some("bytes"),
-                None,
-            );
-            display_metric(ui, "CRC:", &crc, None, None);
+            for m in &metrics_args {
+                m.display(ui);
+            }
         });
     });
 
@@ -208,6 +208,7 @@ fn display_hex_dump_column(
 /// - `frame` - given IDTP frame to handle.
 /// - `col_height` - given hex dump column height in pixels.
 /// - `app_cfg` - given global config to handle.
+#[allow(clippy::indexing_slicing)]
 fn display_payload_column(
     ui: &mut egui::Ui,
     frame: &FrameWrapper,
@@ -215,110 +216,69 @@ fn display_payload_column(
     app_cfg: &AppConfig,
 ) {
     let data = extract_readings(frame);
-    let payload_type = app_cfg.imu.payload_type;
-
-    let [
-        metric0,
-        metric1,
-        metric2,
-        metric3,
-        metric4,
-        metric5,
-        metric6,
-        metric7,
-        metric8,
-        metric9,
-    ] = data;
-
-    let imu_metrics = app_cfg.imu.metrics;
-    let (acc_x, acc_y, acc_z) = (metric0, metric1, metric2);
-    let (gyr_x, gyr_y, gyr_z) = {
-        if payload_type == PayloadType::Imu3Gyr.as_u8() {
-            (metric0, metric1, metric2)
-        } else {
-            (metric3, metric4, metric5)
-        }
-    };
-    let (mag_x, mag_y, mag_z) = {
-        if payload_type == PayloadType::Imu3Mag.as_u8() {
-            (metric0, metric1, metric2)
-        } else {
-            (metric6, metric7, metric8)
-        }
-    };
-    let baro = metric9;
-    let (q_w, q_x, q_y, q_z) = (metric0, metric1, metric2, metric3);
-
-    let acc_mu = Some("m/s^2");
-    let gyr_mu = Some("rad/s");
-    let mag_mu = Some("μT");
-    let baro_mu = Some("Pa");
+    let pt = app_cfg.imu.payload_type;
+    let imu = app_cfg.imu.metrics;
 
     ui.with_layout(Layout::top_down(egui::Align::LEFT), |ui| {
         ui.group(|ui| {
-            let height = col_height.max(100.0);
-
             ui.set_width(ui.available_width());
-            ui.set_max_height(height - 14.0);
+            ui.set_max_height(col_height.max(100.0) - 14.0);
 
-            egui::ScrollArea::vertical()
-                .id_salt("payload_metrics_scroll")
-                .auto_shrink([false; 2])
-                .show(ui, |ui| {
-                    ui.vertical(|ui| {
-                        ui.label(RichText::new("Payload Metrics").strong());
-                        ui.separator();
+            egui::ScrollArea::vertical().id_salt("payload_scroll").show(
+                ui,
+                |ui| {
+                    ui.label(RichText::new("Payload Metrics").strong());
+                    ui.separator();
 
-                        if imu_metrics.acc {
-                            display_metric(
-                                ui, "ACC X:", &acc_x, acc_mu, None,
-                            );
-                            display_metric(
-                                ui, "ACC Y:", &acc_y, acc_mu, None,
-                            );
-                            display_metric(
-                                ui, "ACC Z:", &acc_z, acc_mu, None,
-                            );
-                        }
+                    // Logic-based grouping
+                    if imu.acc {
+                        display_metric_group(
+                            ui,
+                            "ACC",
+                            &data[0..3],
+                            Some("m/s^2"),
+                        );
+                    }
 
-                        if imu_metrics.gyr {
-                            display_metric(
-                                ui, "GYR X:", &gyr_x, gyr_mu, None,
-                            );
-                            display_metric(
-                                ui, "GYR Y:", &gyr_y, gyr_mu, None,
-                            );
-                            display_metric(
-                                ui, "GYR Z:", &gyr_z, gyr_mu, None,
-                            );
-                        }
+                    if imu.gyr {
+                        let start = if pt == PayloadType::Imu3Gyr.as_u8() {
+                            0
+                        } else {
+                            3
+                        };
+                        display_metric_group(
+                            ui,
+                            "GYR",
+                            &data[start..start + 3],
+                            Some("rad/s"),
+                        );
+                    }
 
-                        if imu_metrics.mag {
-                            display_metric(
-                                ui, "MAG X:", &mag_x, mag_mu, None,
-                            );
-                            display_metric(
-                                ui, "MAG Y:", &mag_y, mag_mu, None,
-                            );
-                            display_metric(
-                                ui, "MAG Z:", &mag_z, mag_mu, None,
-                            );
-                        }
+                    if imu.mag {
+                        let start = if pt == PayloadType::Imu3Mag.as_u8() {
+                            0
+                        } else {
+                            6
+                        };
+                        display_metric_group(
+                            ui,
+                            "MAG",
+                            &data[start..start + 3],
+                            Some("μT"),
+                        );
+                    }
 
-                        if imu_metrics.baro {
-                            display_metric(
-                                ui, "BARO:", &baro, baro_mu, None,
-                            );
-                        }
+                    if imu.baro {
+                        let val = format!("{:.6}", data[9]);
+                        Metric::new("BARO:", &val, Some("Pa"), None)
+                            .display(ui);
+                    }
 
-                        if imu_metrics.quat {
-                            display_metric(ui, "QUAT W:", &q_w, None, None);
-                            display_metric(ui, "QUAT X:", &q_x, None, None);
-                            display_metric(ui, "QUAT Y:", &q_y, None, None);
-                            display_metric(ui, "QUAT Z:", &q_z, None, None);
-                        }
-                    });
-                });
+                    if imu.quat {
+                        display_metric_group(ui, "QUAT", &data[0..4], None);
+                    }
+                },
+            );
         });
     });
 }

@@ -3,6 +3,7 @@
 
 //! Telemetry tab user interface implementation.
 
+use crate::model::FrameWrapper;
 use crate::{
     config::AppConfig,
     model::FrameContext,
@@ -12,8 +13,7 @@ use crate::{
     },
 };
 use eframe::epaint::Color32;
-use indtp::{payload::PayloadType};
-use crate::model::FrameWrapper;
+use indtp::payload::PayloadType;
 
 /// Number of metrics in history.
 const HISTORY_ENTRIES: usize = 10;
