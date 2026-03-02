@@ -380,27 +380,26 @@ impl App {
             self.history.pop_front();
         }
 
-        if !self.is_paused {
-            self.current_frame = Some(Arc::clone(&shared_ctx));
-
-            if let Some(ref frame) = shared_ctx.frame {
-                if let Some(AppTab::Telemetry(tab)) = self
-                    .tabs
-                    .iter_mut()
-                    .find(|tab| matches!(tab, AppTab::Telemetry(_)))
-                {
-                    tab.add_data(frame, shared_ctx.timestamp);
-                }
-
-                if let Some(AppTab::Dashboard(tab)) = self
-                    .tabs
-                    .iter_mut()
-                    .find(|tab| matches!(tab, AppTab::Dashboard(_)))
-                {
-                    tab.add_data(&shared_ctx.quaternion, shared_ctx.timestamp);
-                }
+        if let Some(ref frame) = shared_ctx.frame {
+            if let Some(AppTab::Telemetry(tab)) = self
+                .tabs
+                .iter_mut()
+                .find(|tab| matches!(tab, AppTab::Telemetry(_)))
+            {
+                tab.add_data(frame, shared_ctx.timestamp);
             }
 
+            if let Some(AppTab::Dashboard(tab)) = self
+                .tabs
+                .iter_mut()
+                .find(|tab| matches!(tab, AppTab::Dashboard(_)))
+            {
+                tab.add_data(&shared_ctx.quaternion, shared_ctx.timestamp);
+            }
+        }
+
+        if !self.is_paused {
+            self.current_frame = Some(Arc::clone(&shared_ctx));
             self.write_record(&shared_ctx);
         }
     }
