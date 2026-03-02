@@ -389,7 +389,7 @@ impl App {
                     .iter_mut()
                     .find(|tab| matches!(tab, AppTab::Telemetry(_)))
                 {
-                    tab.add_data(frame);
+                    tab.add_data(frame, shared_ctx.timestamp);
                 }
 
                 if let Some(AppTab::Dashboard(tab)) = self
@@ -397,7 +397,7 @@ impl App {
                     .iter_mut()
                     .find(|tab| matches!(tab, AppTab::Dashboard(_)))
                 {
-                    tab.add_data(&shared_ctx.quaternion);
+                    tab.add_data(&shared_ctx.quaternion, shared_ctx.timestamp);
                 }
             }
 

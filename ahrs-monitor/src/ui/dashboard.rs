@@ -109,14 +109,15 @@ impl DashboardTab {
     ///
     /// # Parameters
     /// - `quaternion` - given quaternion to handle.
-    pub fn add_data(&mut self, quaternion: &Option<Quat32>) {
+    /// - `timestamp` - given timestamp in microseconds.
+    pub fn add_data(&mut self, quaternion: &Option<Quat32>, timestamp: u32) {
         if let Some(q) = quaternion {
             let attitude = Euler32::from_quaternion(*q);
 
             let data: [f32; HISTORY_ENTRIES] =
                 [attitude.roll, attitude.pitch, attitude.yaw];
 
-            self.plotter.add_data(data);
+            self.plotter.add_data(data, u64::from(timestamp));
         }
     }
 

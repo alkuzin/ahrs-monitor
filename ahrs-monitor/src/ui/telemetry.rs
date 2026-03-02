@@ -39,9 +39,10 @@ impl TelemetryTab {
     ///
     /// # Parameters
     /// - `frame` - given IDTP frame to handle.
-    pub fn add_data(&mut self, frame: &FrameWrapper) {
+    /// - `timestamp` - given timestamp in microseconds.
+    pub fn add_data(&mut self, frame: &FrameWrapper, timestamp: u32) {
         let data = extract_readings(frame);
-        self.plotter.add_data(data);
+        self.plotter.add_data(data, u64::from(timestamp));
     }
 }
 

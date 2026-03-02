@@ -6,7 +6,7 @@
 use crate::{core::StandardPayload, model::FrameWrapper};
 use eframe::epaint::Color32;
 use egui::RichText;
-use egui_plot::{Corner, Legend, Line, Plot, PlotPoints};
+use egui_plot::{Corner, GridMark, Legend, Line, Plot, PlotPoints};
 use indtp::types::F32;
 use std::collections::VecDeque;
 
@@ -96,6 +96,8 @@ pub fn display_metric_group(
 pub struct Plotter<const ENTRIES: usize, const POINTS: usize> {
     /// Metrics history.
     history: [VecDeque<f64>; ENTRIES],
+    /// Timestamps history.
+    timestamps: VecDeque<f64>,
     /// Plot height in pixels.
     plot_height: Option<f32>,
 }
@@ -105,13 +107,21 @@ impl<const ENTRIES: usize, const POINTS: usize> Plotter<ENTRIES, POINTS> {
     ///
     /// # Parameters
     /// - `data` - given data to append.
-    pub fn add_data(&mut self, data: [f32; ENTRIES]) {
+    /// - `timestamp` - given timestamp in microseconds.
+    pub fn add_data(&mut self, data: [f32; ENTRIES], timestamp: u64) {
+        #[allow(clippy::cast_precision_loss)]
+        let timestamp = timestamp as f64 / 1_000_000.0;
+
+        if self.timestamps.len() >= POINTS {
+            self.timestamps.pop_front();
+        }
+        self.timestamps.push_back(timestamp);
+
         for (i, &val) in data.iter().enumerate() {
             if let Some(sequence) = self.history.get_mut(i) {
                 if sequence.len() >= POINTS {
                     sequence.pop_front();
                 }
-
                 sequence.push_back(f64::from(val));
             }
         }
@@ -172,23 +182,55 @@ impl<const ENTRIES: usize, const POINTS: usize> Plotter<ENTRIES, POINTS> {
         ui.label(RichText::new(title).strong());
 
         let plot_height = self.plot_height.unwrap_or(256.0);
-        let x_range = POINTS as f64;
+
+        let (x_min, x_max) = if let (Some(&min_ts), Some(&max_ts)) =
+            (self.timestamps.front(), self.timestamps.back())
+        {
+            (min_ts, max_ts)
+        } else {
+            (0.0, 1.0)
+        };
+
+        let base_ts = 0.0;
 
         let plot = Plot::new(id)
             .height(plot_height)
             .show_grid(true)
             .legend(Legend::default().position(Corner::RightTop))
-            .include_x(0.0)
+            .include_x(x_min)
+            .include_x(x_max)
             .allow_double_click_reset(true)
-            .include_x(x_range);
+            .x_axis_formatter(move |mark: GridMark, _| {
+                let rel_s = mark.value - base_ts;
+
+                #[allow(clippy::cast_possible_truncation)]
+                let total_ms = (rel_s * 1000.0).round() as i64;
+                let ms = total_ms.abs() % 1000;
+                let total_sec = total_ms / 1000;
+                let sec = total_sec.abs() % 60;
+                let min = total_sec.abs() / 60 % 60;
+                let hours = total_sec.abs() / 3600;
+
+                let sign = if rel_s < 0.0 { "-" } else { "" };
+
+                if hours > 0 {
+                    format!("{sign}{hours}:{min:02}:{sec:02}.{ms:03}")
+                } else if min > 0 {
+                    format!("{sign}{min:02}:{sec:02}.{ms:03}")
+                } else {
+                    format!("{sign}{sec}.{ms:03}")
+                }
+            })
+            .x_axis_label("Time, (sec)");
 
         plot.show(ui, |plot_ui| {
             for (i, history_idx) in indices.iter().enumerate() {
                 if let Some(sequence) = self.history.get(*history_idx) {
-                    let points: PlotPoints = sequence
+                    let points: PlotPoints = self
+                        .timestamps
                         .iter()
-                        .enumerate()
-                        .map(|(idx, &val)| [idx as f64, val])
+                        .zip(sequence.iter())
+                        .map(|(&ts, &val)| [ts, val])
                         .collect();
 
                     if let Some(label) = labels.get(i)
@@ -217,6 +259,7 @@ impl<const ENTRIES: usize, const POINTS: usize> Default
         let history = std::array::from_fn(|_| VecDeque::with_capacity(POINTS));
         Self {
             history,
+            timestamps: VecDeque::default(),
             plot_height: None,
         }
     }
