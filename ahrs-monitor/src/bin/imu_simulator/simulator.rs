@@ -117,7 +117,7 @@ impl Simulator {
             let raw_frame = frame.frame()?;
             socket.send_to(raw_frame, &self.monitor_addr).await?;
 
-            sequence += 1;
+            sequence = sequence.wrapping_add(1);
 
             if sequence.is_multiple_of(1000) {
                 println!("Sequence: {sequence} Sent 1000 packets over UDP");
