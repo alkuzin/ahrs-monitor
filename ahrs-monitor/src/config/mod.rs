@@ -12,7 +12,8 @@ pub use imu::*;
 use indtp::payload::PayloadType;
 pub use net::*;
 use serde::{Deserialize, Serialize};
-use std::{fs, process};
+use std::fs;
+use indtp::types::{AesKey, HmacKey};
 
 /// Window width in pixels.
 pub const APP_WINDOW_WIDTH: f32 = 1024.0;
@@ -39,11 +40,11 @@ pub const MPSC_CHANNEL_BUFFER_SIZE: usize = 128;
 pub const CONFIG_FILE_PATH: &str = "configs/config.toml";
 
 /// AES-128 encryption key.
-pub const AES_KEY: &[u8; 16] =
+pub const AES_KEY: &AesKey =
     include_bytes!("../../configs/firmware/secrets/aes.key");
 
 /// HMAC-SHA256 key.
-pub const HMAC_KEY: &[u8; 32] =
+pub const HMAC_KEY: &HmacKey =
     include_bytes!("../../configs/firmware/secrets/hmac.key");
 
 app_config! {
@@ -64,21 +65,14 @@ app_config! {
 /// - `path` - given config file path.
 ///
 /// # Returns
-/// - Application's configurations.
-#[must_use]
-pub fn load_config(path: &str) -> AppConfig {
-    let content = fs::read_to_string(path).unwrap_or_else(|err| {
-        log::error!("Error load config '{path}': {err}");
-        process::exit(1);
-    });
-
-    let mut config: AppConfig =
-        toml::from_str(&content).unwrap_or_else(|err| {
-            log::error!("Error to parse TOML: {err}");
-            process::exit(1);
-        });
+/// - Application's configurations - in case of success.
+/// - `Err` - otherwise.
+pub fn load_config(path: &str) -> anyhow::Result<AppConfig> {
+    let content = fs::read_to_string(path)?;
+    let mut config: AppConfig = toml::from_str(&content)?;
 
     let payload_type = PayloadType::from(config.imu.payload_type);
     config.imu.metrics = ImuMetrics::from(payload_type);
-    config
+
+    Ok(config)
 }

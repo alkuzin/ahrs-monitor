@@ -10,7 +10,7 @@ sample_rate = 200.0
 # IDTP payload type.
 payload_type = 0x03 # 0x03 - Imu6 (for MPU-6050).
 # IMU device identifier.
-device_id = 0x1337
+device_id = 0x66
 # Protocol operating mode.
 protocol_mode = 0x01
 

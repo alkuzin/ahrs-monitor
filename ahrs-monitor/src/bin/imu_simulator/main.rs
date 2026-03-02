@@ -34,7 +34,7 @@ async fn main() -> anyhow::Result<()> {
 /// # Errors
 /// - I/O errors.
 async fn run_simulator() -> anyhow::Result<()> {
-    let app_config = load_config(config::CONFIG_FILE_PATH);
+    let app_config = load_config(config::CONFIG_FILE_PATH)?;
 
     log::info!("Setting simulator...");
     let mut sim = Simulator::new(app_config)?;

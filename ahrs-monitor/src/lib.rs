@@ -57,7 +57,7 @@ pub fn init_logging(filter: LevelFilter) {
 }
 
 /// Initialize AHRS monitor.
-fn init() -> AppConfig {
+fn init() -> anyhow::Result<AppConfig> {
     init_logging(LevelFilter::Info);
     log::info!("Initialized AHRS monitor");
 
@@ -70,7 +70,7 @@ fn init() -> AppConfig {
         .map_or(config::CONFIG_FILE_PATH, |s| s.as_str());
 
     log::info!("Loading configurations from: {config_path}");
-    config::load_config(config_path)
+    Ok(config::load_config(config_path)?)
 }
 
 /// Run AHRS monitor.
@@ -81,12 +81,12 @@ fn init() -> AppConfig {
 ///
 /// # Errors
 /// - Eframe errors.
-pub fn run() -> eframe::Result {
-    let app_config = init();
+pub fn run() -> anyhow::Result<()> {
+    let app_config = init()?;
     let (tx, rx) = mpsc::channel::<AppEvent>(config::MPSC_CHANNEL_BUFFER_SIZE);
     let app_config_clone = app_config.clone();
 
-    // Spawning a new asynchronous task for handling IDTP frames.
+    // Spawning a new asynchronous task for handling INDTP frames.
     tokio::spawn(async move {
         let mut ingester = Ingester::new(tx, app_config_clone);
 
@@ -106,9 +106,11 @@ pub fn run() -> eframe::Result {
     };
 
     // Starting a native app.
-    eframe::run_native(
+    let _ = eframe::run_native(
         config::APP_WINDOW_TITLE,
         options,
         Box::new(|_| Ok(Box::new(App::new(app_config, rx)))),
-    )
+    );
+
+    Ok(())
 }
