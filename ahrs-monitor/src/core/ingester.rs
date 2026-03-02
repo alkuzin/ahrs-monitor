@@ -3,6 +3,7 @@
 
 //! IMU communication handler.
 
+use std::time::Duration;
 use crate::core::StandardPayload;
 use crate::model::FrameWrapper;
 use crate::{
@@ -15,7 +16,8 @@ use indtp::payload::PayloadType;
 use indtp::types::CryptoKeys;
 use indtp::utils::is_sequence_correct;
 use indtp::{Frame, MTU_SIZE};
-use tokio::{net::UdpSocket, sync::mpsc::Sender, time};
+use tokio::{net::UdpSocket, sync::mpsc::Sender};
+use tokio::time::{interval_at, Instant};
 use tsilna_nav::math::Quat32;
 
 /// Mediator between AHRS monitor and IMU.
@@ -89,14 +91,18 @@ impl Ingester {
         let mut packets_in_last_second: usize = 0;
         let mut current_pps: usize = 0;
 
-        let mut begin_interval =
-            tokio::time::interval(time::Duration::from_secs(1));
+        const CONNECTION_TIMEOUT: Duration = Duration::from_secs(3);
+        let mut last_packet_time = Instant::now();
+        let mut connection_active = true;
+        let mut pps_interval = interval_at(Instant::now(), Duration::from_secs(1));
+        let mut timeout_check = interval_at(Instant::now() + CONNECTION_TIMEOUT, CONNECTION_TIMEOUT);
 
         loop {
             tokio::select! {
                 recv = socket.recv_from(&mut buffer) => {
                     let (len, _addr) = recv?;
 
+                    last_packet_time = Instant::now();
                     total_packets += 1;
                     packets_in_last_second += 1;
 
@@ -150,9 +156,29 @@ impl Ingester {
                         AppEvent::FrameReceived(Box::new(frame_ctx))
                     ).await;
                 }
-                _ = begin_interval.tick() => {
+                _ = pps_interval.tick() => {
                     current_pps = packets_in_last_second;
                     packets_in_last_second = 0;
+                }
+
+                _ = timeout_check.tick() => {
+                    if connection_active && last_packet_time.elapsed() >= CONNECTION_TIMEOUT {
+                        log::warn!("No data received for {:?}, marking connection lost", CONNECTION_TIMEOUT);
+                        connection_active = false;
+                        total_packets = 0;
+                        packets_in_last_second = 0;
+                        current_pps = 0;
+                        self.prev_sequence = None;
+                        self.last_timestamp_us = None;
+                        self.estimator = AttitudeEstimator::new();
+                        self.bad_packets = 0;
+
+                        let _ = self.tx.send(AppEvent::UpdateConnectionStatus(false)).await;
+                    } else if !connection_active && last_packet_time.elapsed() < CONNECTION_TIMEOUT {
+                        log::info!("Data flow resumed, marking connection active");
+                        connection_active = true;
+                        let _ = self.tx.send(AppEvent::UpdateConnectionStatus(true)).await;
+                    }
                 }
             }
         }
@@ -161,7 +187,8 @@ impl Ingester {
     /// Estimate IMU attitude.
     ///
     /// # Parameters
-    /// - `frame` - given IDTP frame to handle. TODO:
+    /// - `timestamp` - given sensor-local time in microseconds to handle.
+    /// - `payload` - given frame payload to handle.
     ///
     /// # Returns
     /// - Attitude in quaternion representation - in case of success.

@@ -74,7 +74,7 @@ impl AttitudeEstimator {
 ///
 /// # Parameters
 /// - `estimator` - given attitude estimator.
-// - `frame` - given IDTP frame to handle. TODO:
+/// - `payload` - given frame payload to handle.
 /// - `dt` - given time step since last update in seconds (sec).
 ///
 /// # Returns

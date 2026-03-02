@@ -305,6 +305,7 @@ impl App {
     fn render_active_tab(&mut self, ui: &mut egui::Ui) {
         if let Some(tab) = self.tabs.get_mut(self.current_tab_idx)
             && let Some(frame_ctx) = &self.current_frame
+            && self.connection_status
         {
             if self.config.imu.is_correct() {
                 match tab {
@@ -362,9 +363,18 @@ impl App {
     ///
     /// # Parameters
     /// - `status` - given new connection status between AHRS monitor and IMU.
-    #[inline]
-    const fn handle_update_connection_status(&mut self, status: bool) {
+    fn handle_update_connection_status(&mut self, status: bool) {
         self.connection_status = status;
+        self.current_frame = None;
+        self.logger = None;
+        self.history.clear();
+        self.frame_counter = 0;
+        self.is_paused = false;
+        self.tabs = vec![
+            AppTab::Dashboard(DashboardTab::default()),
+            AppTab::Telemetry(Box::default()),
+            AppTab::Inspector(InspectorTab),
+        ];
     }
 
     /// Handle received frame event.
@@ -380,25 +390,25 @@ impl App {
             self.history.pop_front();
         }
 
-        if let Some(ref frame) = shared_ctx.frame {
-            if let Some(AppTab::Telemetry(tab)) = self
-                .tabs
-                .iter_mut()
-                .find(|tab| matches!(tab, AppTab::Telemetry(_)))
-            {
-                tab.add_data(frame, shared_ctx.timestamp);
-            }
-
-            if let Some(AppTab::Dashboard(tab)) = self
-                .tabs
-                .iter_mut()
-                .find(|tab| matches!(tab, AppTab::Dashboard(_)))
-            {
-                tab.add_data(&shared_ctx.quaternion, shared_ctx.timestamp);
-            }
-        }
-
         if !self.is_paused {
+            if let Some(ref frame) = shared_ctx.frame {
+                if let Some(AppTab::Telemetry(tab)) = self
+                    .tabs
+                    .iter_mut()
+                    .find(|tab| matches!(tab, AppTab::Telemetry(_)))
+                {
+                    tab.add_data(frame, shared_ctx.timestamp);
+                }
+
+                if let Some(AppTab::Dashboard(tab)) = self
+                    .tabs
+                    .iter_mut()
+                    .find(|tab| matches!(tab, AppTab::Dashboard(_)))
+                {
+                    tab.add_data(&shared_ctx.quaternion, shared_ctx.timestamp);
+                }
+            }
+
             self.current_frame = Some(Arc::clone(&shared_ctx));
             self.write_record(&shared_ctx);
         }
