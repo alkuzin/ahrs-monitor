@@ -205,11 +205,11 @@ impl<const ENTRIES: usize, const POINTS: usize> Plotter<ENTRIES, POINTS> {
 
                 #[allow(clippy::cast_possible_truncation)]
                 let total_ms = (rel_s * 1000.0).round() as i64;
-                let ms = total_ms.abs() % 1000;
+                let ms = total_ms.unsigned_abs() % 1000;
                 let total_sec = total_ms / 1000;
-                let sec = total_sec.abs() % 60;
-                let min = total_sec.abs() / 60 % 60;
-                let hours = total_sec.abs() / 3600;
+                let sec = total_sec.unsigned_abs() % 60;
+                let min = total_sec.unsigned_abs() / 60 % 60;
+                let hours = total_sec.unsigned_abs() / 3600;
 
                 let sign = if rel_s < 0.0 { "-" } else { "" };
 
