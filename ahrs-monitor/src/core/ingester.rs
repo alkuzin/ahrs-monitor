@@ -4,20 +4,16 @@
 //! IMU communication handler.
 
 use std::time::Duration;
-use crate::core::StandardPayload;
-use crate::model::FrameWrapper;
 use crate::{
     config::{self, AppConfig},
-    core::attitude::{AttitudeEstimator, estimate_attitude},
-    model::{AppEvent, FrameContext},
+    core::{attitude::{AttitudeEstimator, estimate_attitude}, StandardPayload},
+    model::{AppEvent, FrameContext, FrameWrapper},
 };
-use indtp::engines::{SwCryptoEngine, SwIntegrityEngine};
-use indtp::payload::PayloadType;
-use indtp::types::CryptoKeys;
-use indtp::utils::is_sequence_correct;
-use indtp::{Frame, MTU_SIZE};
-use tokio::{net::UdpSocket, sync::mpsc::Sender};
-use tokio::time::{interval_at, Instant};
+use indtp::{
+    engines::{SwCryptoEngine, SwIntegrityEngine}, payload::PayloadType,
+    types::CryptoKeys, Frame, MTU_SIZE, utils::is_sequence_correct,
+};
+use tokio::{net::UdpSocket, sync::mpsc::Sender, time::{interval_at, Instant}};
 use tsilna_nav::math::Quat32;
 
 /// Mediator between AHRS monitor and IMU.
@@ -74,7 +70,7 @@ impl Ingester {
     pub async fn run(&mut self) -> anyhow::Result<()> {
         log::info!("Running Ingester");
 
-        let pair = (self.cfg.net.ip_address.clone(), self.cfg.net.udp_port);
+        let pair = (self.cfg.net.monitor_ip.clone(), self.cfg.net.monitor_port);
         let bind_result = UdpSocket::bind(pair).await;
 
         // Sending UDP connection status.
@@ -91,7 +87,7 @@ impl Ingester {
         let mut packets_in_last_second: usize = 0;
         let mut current_pps: usize = 0;
 
-        const CONNECTION_TIMEOUT: Duration = Duration::from_secs(3);
+        const CONNECTION_TIMEOUT: Duration = Duration::from_secs(5);
         let mut last_packet_time = Instant::now();
         let mut connection_active = true;
         let mut pps_interval = interval_at(Instant::now(), Duration::from_secs(1));

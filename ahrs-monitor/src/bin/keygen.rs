@@ -27,12 +27,6 @@ const STM32_CONFIG_PATH: &str = "configs/firmware/stm32_config.rs";
 /// Path for generated firmware config for ESP32.
 const ESP32_CONFIG_PATH: &str = "configs/firmware/esp32_config.rs";
 
-/// Relative path for generated AES-128 key.
-const AES_KEY_RELATIVE_PATH: &str = "../../configs/firmware/secrets/aes.key";
-
-/// Relative path for generated HMAC key.
-const HMAC_KEY_RELATIVE_PATH: &str = "../../configs/firmware/secrets/hmac.key";
-
 /// Generate AES-128 & HMAC-SHA256 keys.
 ///
 /// # Returns
@@ -121,23 +115,46 @@ fn generate_esp32_config(cfg: &AppConfig) -> anyhow::Result<()> {
 // DO NOT EDIT MANUALLY. Use AHRS Monitor config and re-run generator.
 // Generated: {now}
 
-/// AHRS Monitor ingester IP address.
+/// AHRS Monitor IP address.
 pub const MONITOR_IP: &str = "{}";
 
-/// AHRS Monitor ingester UDP port.
+/// AHRS Monitor UDP port.
 pub const MONITOR_PORT: u16 = {};
+
+/// IMU gateway IP address.
+pub const IMU_GATEWAY_IP: &str = "{}";
+
+/// IMU gateway SSID.
+pub const IMU_GATEWAY_SSID: &str = "{}";
+
+/// IMU gateway password.
+pub const IMU_GATEWAY_PASSWORD: &str = "{}";
 
 /// Whether to encrypt the frame payload.
 pub const USE_ENCRYPTION: bool = {};
 
-/// AES-128 encryption key.
-pub const AES_KEY: &[u8; 16] = include_bytes!("{AES_KEY_RELATIVE_PATH}");
+/// Make path to secrets.
+macro_rules! secrets_path {{
+    ($item:expr) => {{
+        concat!(
+            env!("CARGO_MANIFEST_DIR"),
+            "/../configs/firmware/secrets/",
+            $item
+        )
+    }};
+}}
 
-/// HMAC-SHA256 authentication key.
-pub const HMAC_KEY: &[u8; 32] = include_bytes!("{HMAC_KEY_RELATIVE_PATH}");
+/// AES-128 encryption key.
+pub const AES_KEY: &[u8; 16] = include_bytes!(secrets_path!("aes.key"));
+
+/// HMAC-SHA256 authentication key.s
+pub const HMAC_KEY: &[u8; 32] = include_bytes!(secrets_path!("hmac.key"));
 "#,
-        cfg.net.ip_address,
-        cfg.net.udp_port,
+        cfg.net.monitor_ip,
+        cfg.net.monitor_port,
+        cfg.net.imu_gateway_ip,
+        cfg.net.imu_gateway_ssid,
+        cfg.net.imu_gateway_password,
         cfg.net.use_encryption,
     );
 

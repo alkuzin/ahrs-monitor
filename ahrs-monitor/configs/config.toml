@@ -16,14 +16,20 @@ protocol_mode = 0x01
 
 # Networks configurations.
 [net]
-# Ingester's IP address.
-ip_address = "127.0.0.1"
-# Ingester's UDP port.
-udp_port = 10000
+# Monitor's IP address.
+monitor_ip = "192.168.6.2"
+# Monitor's UDP port.
+monitor_port = 12345
+# IMU's gateway IP address.
+imu_gateway_ip = "192.168.6.1"
+# IMU's gateway SSID.
+imu_gateway_ssid = "AHRS_Direct"
+# IMU's gateway password.
+imu_gateway_password = "1234567890"
 # Simulator's IP address.
-simulator_ip_address = "127.0.0.1"
+simulator_ip = "127.0.0.1"
 # Simulator's UDP port.
-simulator_udp_port = 10001
+simulator_port = 1234
 # Flag whether to use encryption for IMU data transmission.
 use_encryption = true
 

@@ -42,12 +42,12 @@ impl Simulator {
 
         let simulator_addr = format!(
             "{}:{}",
-            net_cfg.simulator_ip_address.clone(),
-            net_cfg.simulator_udp_port,
+            net_cfg.simulator_ip.clone(),
+            net_cfg.simulator_port,
         );
 
         let monitor_addr =
-            format!("{}:{}", net_cfg.ip_address.clone(), net_cfg.udp_port);
+            format!("{}:{}", net_cfg.monitor_ip.clone(), net_cfg.monitor_port);
 
         Ok(Self {
             cfg,
