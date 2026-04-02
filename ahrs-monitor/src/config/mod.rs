@@ -33,6 +33,9 @@ pub const VERSION: &str = env!("CARGO_PKG_VERSION");
 /// Max number of frame contexts in history.
 pub const HISTORY_MAX_SIZE: usize = 32;
 
+/// Max number of points in history per each metric.
+pub const HISTORY_MAX_POINTS: usize = 500;
+
 /// MPSC channel max number of messages in the buffer.
 pub const MPSC_CHANNEL_BUFFER_SIZE: usize = 128;
 

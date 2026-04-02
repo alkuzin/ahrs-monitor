@@ -3,10 +3,9 @@
 
 //! Telemetry tab user interface implementation.
 
-use crate::model::FrameWrapper;
 use crate::{
-    config::AppConfig,
-    model::FrameContext,
+    config::{AppConfig, HISTORY_MAX_POINTS},
+    model::{FrameContext, FrameWrapper},
     ui::{
         TabViewer,
         utils::{Plotter, extract_readings},
@@ -18,9 +17,7 @@ use indtp::payload::PayloadType;
 /// Number of metrics in history.
 const HISTORY_ENTRIES: usize = 10;
 
-/// Max number of points in history per each metric.
-const MAX_POINTS: usize = 1000;
-
+/// Group metrics colors.
 const GROUP_COLORS: [Color32; 3] = [
     Color32::LIGHT_BLUE,
     Color32::LIGHT_RED,
@@ -31,7 +28,7 @@ const GROUP_COLORS: [Color32; 3] = [
 #[derive(Debug, Default)]
 pub struct TelemetryTab {
     /// Metrics plotter.
-    plotter: Plotter<HISTORY_ENTRIES, MAX_POINTS>,
+    plotter: Plotter<HISTORY_ENTRIES, HISTORY_MAX_POINTS>,
 }
 
 impl TelemetryTab {

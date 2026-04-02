@@ -3,11 +3,10 @@
 
 //! Dashboard tab user interface implementation.
 
-use crate::ui::utils::Metric;
 use crate::{
-    config::AppConfig,
+    config::{AppConfig, HISTORY_MAX_SIZE},
     model::FrameContext,
-    ui::{TabViewer, utils::Plotter},
+    ui::{TabViewer, utils::{Plotter, Metric}},
 };
 use eframe::epaint::Stroke;
 use egui::{Align2, Color32, FontId, Pos2, Sense, vec2};
@@ -25,14 +24,11 @@ const YAW_COLOR: Color32 = Color32::LIGHT_BLUE;
 /// Number of metrics in history.
 const HISTORY_ENTRIES: usize = 3;
 
-/// Max number of points in history per each metric.
-const MAX_POINTS: usize = 1000;
-
 /// Dashboard tab handler.
 #[derive(Debug, Default)]
 pub struct DashboardTab {
     /// Metrics plotter.
-    plotter: Plotter<HISTORY_ENTRIES, MAX_POINTS>,
+    plotter: Plotter<HISTORY_ENTRIES, HISTORY_MAX_SIZE>,
 }
 
 impl TabViewer for DashboardTab {
