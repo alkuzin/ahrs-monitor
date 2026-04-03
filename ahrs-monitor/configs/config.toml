@@ -31,7 +31,7 @@ simulator_ip = "127.0.0.1"
 # Simulator's UDP port.
 simulator_port = 1234
 # Flag whether to use encryption for IMU data transmission.
-use_encryption = true
+use_encryption = false
 
 # Logging configurations.
 [log]

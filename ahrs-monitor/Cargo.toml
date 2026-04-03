@@ -4,7 +4,7 @@
 # Project package info section.
 [package]
 name        = "ahrs-monitor"
-version     = "1.4.0"
+version     = "1.5.0"
 description = "AHRS cross-platform telemetry station"
 authors     = ["Alexander <alkuzindev@gmail.com>"]
 repository  = "https://github.com/alkuzin/ahrs-monitor"
@@ -33,7 +33,7 @@ tokio = { version = "1.49", features = ["full"] }
 tsilna-nav = { git = "https://github.com/alkuzin/tsilna", features = ["math"] }
 # The lightweight, binary application-layer (L7) protocol designed specifically
 # for the Inertial Navigation Systems (INS) and autonomous platforms.
-indtp = { git = "https://github.com/alkuzin/indtp", version = "0.9.3" }
+indtp = { git = "https://github.com/alkuzin/indtp", version = "0.9.4" }
 # A trait object based error type for easy idiomatic error handling.
 anyhow = "1.0"
 # Framework for serializing and deserializing Rust data structures

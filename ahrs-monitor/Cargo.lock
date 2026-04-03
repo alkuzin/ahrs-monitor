@@ -149,7 +149,7 @@ dependencies = [
 
 [[package]]
 name = "ahrs-monitor"
-version = "1.4.0"
+version = "1.5.0"
 dependencies = [
  "anyhow",
  "chrono",
@@ -1862,8 +1862,8 @@ dependencies = [
 
 [[package]]
 name = "indtp"
-version = "0.9.3"
-source = "git+https://github.com/alkuzin/indtp#d4edff419531407a7ee64f053f0d4bd9045ed05e"
+version = "0.9.4"
+source = "git+https://github.com/alkuzin/indtp#207f47b529ff5789708313d380e054362fd43246"
 dependencies = [
  "aes",
  "bitflags 2.11.0",
