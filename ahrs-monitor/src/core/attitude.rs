@@ -10,6 +10,12 @@ use tsilna_nav::math::{
     na::{Quaternion, Vector3},
 };
 
+/// Gravity of Earth (in m/s^2).
+const EARTH_GRAVITY: f32 = 9.80665;
+
+/// Degrees to radians.
+const DEG_TO_RAD: f32 = 0.01745329;
+
 #[derive(Default)]
 /// AHRS attitude estimator wrapper.
 pub struct AttitudeEstimator {
@@ -89,11 +95,17 @@ pub fn estimate_attitude(
         Some(StandardPayload::Imu6(p)) => {
             let (acc, gyr) = (p.acc, p.gyr);
 
-            let acc =
-                Vector3::new(acc.acc_x.get(), acc.acc_y.get(), acc.acc_z.get());
+            let acc = Vector3::new(
+                acc.acc_x.get() / EARTH_GRAVITY,
+                acc.acc_y.get() / EARTH_GRAVITY,
+                acc.acc_z.get() / EARTH_GRAVITY,
+            );
 
-            let gyr =
-                Vector3::new(gyr.gyr_x.get(), gyr.gyr_y.get(), gyr.gyr_z.get());
+            let gyr = Vector3::new(
+                gyr.gyr_x.get() / DEG_TO_RAD,
+                gyr.gyr_y.get() / DEG_TO_RAD,
+                gyr.gyr_z.get() / DEG_TO_RAD,
+            );
 
             estimator.estimate_imu(acc, gyr, dt)
         }
@@ -102,14 +114,23 @@ pub fn estimate_attitude(
         Some(StandardPayload::Imu9(p)) => {
             let (acc, gyr, mag) = (p.acc, p.gyr, p.mag);
 
-            let acc =
-                Vector3::new(acc.acc_x.get(), acc.acc_y.get(), acc.acc_z.get());
+            let acc = Vector3::new(
+                acc.acc_x.get() / EARTH_GRAVITY,
+                acc.acc_y.get() / EARTH_GRAVITY,
+                acc.acc_z.get() / EARTH_GRAVITY,
+            );
 
-            let gyr =
-                Vector3::new(gyr.gyr_x.get(), gyr.gyr_y.get(), gyr.gyr_z.get());
+            let gyr = Vector3::new(
+                gyr.gyr_x.get() / DEG_TO_RAD,
+                gyr.gyr_y.get() / DEG_TO_RAD,
+                gyr.gyr_z.get() / DEG_TO_RAD,
+            );
 
-            let mag =
-                Vector3::new(mag.mag_x.get(), mag.mag_y.get(), mag.mag_z.get());
+            let mag = Vector3::new(
+                mag.mag_x.get(),
+                mag.mag_y.get(),
+                mag.mag_z.get(),
+            );
 
             estimator.estimate_marg(acc, gyr, mag, dt)
         }
